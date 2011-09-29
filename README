@@ -1,0 +1,30 @@
+musicd
+======
+Author: Konsta Kokkinen <kray@tsundere.fi>
+
+musicd is a daemon for indexing music collection and providing searching and
+streaming of that music for standalone clients.
+
+
+Requirements
+============
+  * C compiler (tested with gcc, tcc won't do because libav* require C99)
+  * libavformat new enough
+  * libavcodec new enough
+  * libsqlite3
+
+
+Copyright
+=========
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Compilation
+===========
+A standard GNU Makefile is used. Assuming you have dependencies installed in
+standard location and have gcc in path:
+
+    $ make
+    $ make install PREFIX=/usr

@@ -1,0 +1,25 @@
+SRCS =  src/client.c \
+	src/config.c \
+	src/cue.c \
+	src/libav.c \
+	src/library.c \
+	src/log.c \
+	src/musicd.c \
+	src/server.c \
+	src/track.c
+
+DEPS = $(SRCS)
+
+CFLAGS = -g -Wall -Wextra
+
+LIBS = -lavcodec -lavformat -lsqlite3
+
+PREFIX ?= /usr/local
+
+musicd: $(DEPS)
+	$(CC) $(CFLAGS) $(SRCS) -o musicd $(LIBS)
+
+install: musicd
+	install -m 0755 musicd $(PREFIX)/bin/
+	install -d $(PREFIX)/share/doc/musicd/
+	install -m 644 doc/* $(PREFIX)/share/doc/musicd/
