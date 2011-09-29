@@ -20,6 +20,7 @@ musicd: $(DEPS)
 	$(CC) $(CFLAGS) $(SRCS) -o musicd $(LIBS)
 
 install: musicd
-	install -m 0755 musicd $(PREFIX)/bin/
+	install -d $(PREFIX)/bin/
+	install -m 0775 musicd $(PREFIX)/bin/
 	install -d $(PREFIX)/share/doc/musicd/
 	install -m 644 doc/* $(PREFIX)/share/doc/musicd/
