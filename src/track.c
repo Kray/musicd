@@ -199,14 +199,14 @@ track_stream_t *track_stream_open(track_t *track)
   return result;
 }
 
-void track_stream_close(track_stream_t* stream)
+void track_stream_close(track_stream_t *stream)
 {
   av_close_input_file(stream->avctx);
   av_free_packet(&stream->packet);
   free(stream);
 }
 
-uint8_t* track_stream_read(track_stream_t* stream, int* size, int* pts)
+uint8_t* track_stream_read(track_stream_t *stream, int *size, int64_t *pts)
 {
   int result;
   
@@ -239,9 +239,10 @@ uint8_t* track_stream_read(track_stream_t* stream, int* size, int* pts)
   return stream->packet.data;
 }
 
-int track_stream_seek(track_stream_t* stream, int position)
+int track_stream_seek(track_stream_t *stream, int position)
 {
-  int result, seek_pos;
+  int result;
+  int64_t seek_pos;
   
   seek_pos = (position + stream->track->start) /
     av_q2d(stream->avctx->streams[0]->time_base);

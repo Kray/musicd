@@ -62,7 +62,7 @@ typedef struct track_stream {
 } track_stream_t;
 
 track_stream_t *track_stream_open(track_t *track);
-uint8_t *track_stream_read(track_stream_t *stream, int *size, int *pts);
+uint8_t *track_stream_read(track_stream_t *stream, int *size, int64_t *pts);
 int track_stream_seek(track_stream_t *stream, int position);
 void track_stream_close(track_stream_t *stream);
 

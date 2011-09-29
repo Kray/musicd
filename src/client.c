@@ -383,7 +383,8 @@ int client_send(client_t *client, const char *msg)
 int client_next_packet(client_t* client)
 {
   uint8_t *data;
-  int size, pts;
+  int size;
+  int64_t pts;
   char line[1024];
   
   if (!client->track_stream) {
@@ -399,7 +400,7 @@ int client_next_packet(client_t* client)
     return 0;
   }
   
-  snprintf(line, 1023, "packet pts=%i payload=%i\n", pts, size);
+  snprintf(line, 1023, "packet pts=%li payload=%i\n", pts, size);
   client_send(client, line);
   
   /*musicd_log(LOG_DEBUG, "main", "%s", line);*/
