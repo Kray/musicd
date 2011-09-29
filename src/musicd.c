@@ -34,6 +34,8 @@ void print_usage(char *arg0)
   printf("  %s [CONFIG...] [OPTION]\n\n", arg0);
   printf("musicd, a daemon for indexing and streaming music.\n\n");
   printf("Configuration:\n");
+  printf("  --config <PATH>\tSpecify configuration file path. Default is "
+         "/etc/musicd.conf\n\n");
   printf("  Any configuration option can be passed in format --key value.\n");
   printf("  Refer to doc/musicd.conf on configuration options.\n\n");
   printf("Trailing option:\n");
