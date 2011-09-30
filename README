@@ -1,10 +1,14 @@
 musicd
 ======
 Author: Konsta Kokkinen <kray@tsundere.fi>
+Website: http://tsundere.fi/musicd
 
 musicd is a daemon for indexing music collection and providing searching and
 streaming of that music for standalone clients.
 
+Clients
+=======
+A reference client QMDC is available at http://github.com/Kray/qmdc
 
 Requirements
 ============
@@ -12,7 +16,6 @@ Requirements
   * libavformat new enough
   * libavcodec new enough
   * libsqlite3
-
 
 Copyright
 =========
