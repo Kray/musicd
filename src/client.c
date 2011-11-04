@@ -46,7 +46,6 @@ void client_close(client_t *client)
   close(client->fd);
   free(client->name);
   free(client->user);
-  track_stream_close(client->track_stream);
   free(client);
 }
 
