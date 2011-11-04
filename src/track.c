@@ -200,7 +200,6 @@ void track_stream_close(track_stream_t *stream)
     return;
   }
   av_close_input_file(stream->avctx);
-  av_free_packet(&stream->packet);
   free(stream);
 }
 
