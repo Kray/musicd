@@ -52,11 +52,6 @@ track_t *track_from_url(const char *url)
    * @todo TODO Own probing for ensuring probing score high enough to be sure
    * about file really being an audio file. */
   
-  /* Don't bother if file extension isn't known. */
-  /*if (!av_guess_format(NULL, ".tta", NULL)) {
-    return NULL;
-  }*/
-  
   if (avformat_open_input(&avctx, url, NULL, NULL)) {
     return NULL;
   }
@@ -201,6 +196,9 @@ track_stream_t *track_stream_open(track_t *track)
 
 void track_stream_close(track_stream_t *stream)
 {
+  if (!stream) {
+    return;
+  }
   av_close_input_file(stream->avctx);
   av_free_packet(&stream->packet);
   free(stream);
