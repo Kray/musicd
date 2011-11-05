@@ -217,19 +217,16 @@ int library_add(track_t *track)
 
 void library_clear_url(const char *url)
 {
-  int id;
   sqlite3_stmt *stmt;
-  
-  //id = field_id("urls", "url", url);
-  
+
   static const char *sql =
-    "DELETE FROM tracks WHERE url = (SELECT rowid FROM urls WHERE url = ?)";
+    "DELETE FROM tracks WHERE url = (SELECT rowid FROM urls WHERE url = ? LIMIT 1)";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
     return;
   }
-  //sqlite3_bind_int(stmt, 1, id);
+
   sqlite3_bind_text(stmt, 1, url, -1, NULL);
   
   if (sqlite3_step(stmt) != SQLITE_DONE) {
