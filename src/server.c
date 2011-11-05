@@ -22,9 +22,11 @@
 #include "log.h"
 
 #include <netinet/in.h>
+#include <netdb.h> 
 #include <pthread.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -130,38 +132,115 @@ static void *thread_func(void *data)
   return NULL;
 }
 
-int server_start()
+static int server_bind_tcp(const char *address)
 {
-  struct sockaddr_in serv_addr;
+  struct sockaddr_in sockaddr;
+  struct hostent *host;
   int port;
   
   port = config_to_int("port");
   
   master_sock = socket(AF_INET, SOCK_STREAM, 0);
   if (master_sock < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not open socket");
+    musicd_perror(LOG_ERROR, "server", "Could not open socket.");
     return -1;
   }
   
-  bzero(&serv_addr, sizeof(serv_addr));
+  if (!address) {
+    sockaddr.sin_addr.s_addr = INADDR_ANY;
+  } else {
+    bzero(&sockaddr, sizeof(sockaddr));
+    host = gethostbyname(address);
+    if (!host) {
+      musicd_log(LOG_ERROR, "server", "Could not resolve address %s.",
+                 address);
+      close(master_sock);
+      master_sock = -1;
+      return -1;
+    }
+    bcopy((char*)host->h_addr, (char*)&sockaddr.sin_addr.s_addr,
+          host->h_length);
+  }
   
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_addr.s_addr = INADDR_ANY;
-  serv_addr.sin_port = htons(port);
+  sockaddr.sin_family = AF_INET;
+  sockaddr.sin_port = htons(port);
   
-  if (bind(master_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+  if (bind(master_sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
     musicd_perror(LOG_ERROR, "server", "Could not bind socket");
     close(master_sock);
     master_sock = -1;
     return -1;
   }
   
-  listen(master_sock, 5);
+  musicd_log(LOG_VERBOSE, "server", "Listening on %s:%i", address, port);
+
+  return 0;
+}
+
+static int server_bind_unix(const char *path)
+{
+  struct sockaddr_un sockaddr;
   
-  musicd_log(LOG_VERBOSE, "server", "Listening on 0.0.0.0:%i", port);
+  master_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (master_sock < 0) {
+    musicd_perror(LOG_ERROR, "server", "Could not open socket.");
+    return -1;
+  }
+  
+  strcpy(sockaddr.sun_path, path);
+  sockaddr.sun_family = AF_UNIX;
+  
+  unlink(sockaddr.sun_path);
+  
+  if (bind(master_sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
+    musicd_perror(LOG_ERROR, "server", "Could not bind socket");
+    close(master_sock);
+    master_sock = -1;
+    return -1;
+  }
+  
+  musicd_log(LOG_VERBOSE, "server", "Listening on %s", path);
+
+  return 0;
+}
+
+static int server_bind()
+{
+  const char *bind;
+  
+  bind = config_get("bind");
+  if (strlen(bind) == 0) {
+    musicd_perror(LOG_ERROR, "server", "Invalid value for 'bind'.");
+    return -1;
+  }
+  
+  if (!strcmp(bind, "any")) {
+    return server_bind_tcp(NULL);
+  }
+  
+  if (bind[0] >= '0' && bind[0] <= '9') {
+    return server_bind_tcp(bind);
+  }
+  
+  /* It is not 'any', and does not begin with number, assume it is a unix
+   * socket path. */
+  bind = config_to_path("bind");
+  return server_bind_unix(bind);
+}
+
+int server_start()
+{
+  int result;
+  
+  result = server_bind();
+  if (result) {
+    return result;
+  }
   
   TAILQ_INIT(&clients);
   build_pollfds();
+  
+  listen(master_sock, 5);
   
   if (pthread_create(&thread, NULL, thread_func, NULL)) {
     musicd_perror(LOG_ERROR, "server", "Could not create thread");
@@ -169,6 +248,7 @@ int server_start()
     master_sock = -1;
     return -1;
   }
+  
   return 0;
 }
 

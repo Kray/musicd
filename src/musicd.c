@@ -62,6 +62,7 @@ int main(int argc, char* argv[])
   /*config_set("log-level", "debug");*/
   config_set_hook("log-level", log_level_changed);
   config_set("config", "/etc/musicd.conf");
+  config_set("bind", "any");
   config_set("port", "6800");
   
   if (config_load_args(argc, argv)) {
