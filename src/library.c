@@ -109,10 +109,10 @@ time_t library_get_url_mtime(const char *url)
   
   result = sqlite3_step(stmt);
   if (result == SQLITE_DONE) {
-    field_id("urls", "url", url);
     return 0;
   } else if(result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "library", "get_url_mtime: sqlite3_step failed.");
+    return 0;
   }
   
   result = sqlite3_column_int(stmt, 0);
@@ -124,8 +124,11 @@ time_t library_get_url_mtime(const char *url)
 void library_set_url_mtime(const char *url, time_t mtime)
 {
   sqlite3_stmt *stmt;
+  int id;
   int result;
-  static const char *sql = "UPDATE urls SET mtime = ? WHERE url = ?";
+  static const char *sql = "UPDATE urls SET mtime = ? WHERE rowid = ?";
+  
+  id = field_id("urls", "url", url);
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
@@ -133,7 +136,7 @@ void library_set_url_mtime(const char *url, time_t mtime)
   }
   
   sqlite3_bind_int64(stmt, 1, mtime);
-  sqlite3_bind_text(stmt, 2, url, -1, NULL);
+  sqlite3_bind_int64(stmt, 2, id);
   
   result = sqlite3_step(stmt);
   if (result != SQLITE_DONE) {
@@ -202,7 +205,6 @@ int library_add(track_t *track)
   sqlite3_bind_int(stmt, 7, track->duration);
   
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    /* Ok, now it really is an error. */
     musicd_log(LOG_ERROR, "library", "library_add: sqlite3_step failed.");
     sqlite3_finalize(stmt);
     return -1;
@@ -211,6 +213,33 @@ int library_add(track_t *track)
   sqlite3_finalize(stmt);
   return 0;
 }
+
+
+void library_clear_url(const char *url)
+{
+  int id;
+  sqlite3_stmt *stmt;
+  
+  //id = field_id("urls", "url", url);
+  
+  static const char *sql =
+    "DELETE FROM tracks WHERE url = (SELECT rowid FROM urls WHERE url = ?)";
+  
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+    return;
+  }
+  //sqlite3_bind_int(stmt, 1, id);
+  sqlite3_bind_text(stmt, 1, url, -1, NULL);
+  
+  if (sqlite3_step(stmt) != SQLITE_DONE) {
+    musicd_log(LOG_ERROR, "library",
+               "library_clear_url: sqlite3_step failed.");
+  }
+  
+  sqlite3_finalize(stmt);
+}
+
 
 /*struct library_query_t {
   sqlite3_stmt *stmt;
@@ -401,7 +430,8 @@ iterate_dir(const char *path,
   if (errno) {
     /* It was possible to open the directory but we can't iterate it anymore?
      * Something's fishy. */
-    musicd_perror(LOG_ERROR, "library", "Could not iterate directory %s", path);
+    musicd_perror(LOG_ERROR, "library", "Could not iterate directory %s",
+                  path);
   }
 }
 
@@ -435,7 +465,7 @@ static void scan_files_cb(const char *path, const char *ext)
     return;
   }
   
-  library_set_url_mtime(path, status.st_mtime);
+  library_clear_url(path);
   
   musicd_log(LOG_DEBUG, "library", "scan %s", path);
   
@@ -443,6 +473,9 @@ static void scan_files_cb(const char *path, const char *ext)
   if (!track) {
     return;
   }
+  
+  musicd_log(LOG_DEBUG, "library", "SET");
+  library_set_url_mtime(path, status.st_mtime);
 
   library_add(track);
   track_free(track);

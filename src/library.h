@@ -27,6 +27,11 @@ void library_scan(const char *directory);
 
 int library_add(track_t *track);
 
+/**
+ * If tracks with such url exist, delete them.
+ */
+void library_clear_url(const char *url);
+
 #if 0
 typedef enum {
   LIBRARY_FIELD_NONE,

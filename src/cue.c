@@ -28,10 +28,7 @@ static int read_line(FILE *file, char *buf, int buf_size) {
   
   while (1) {
     c = fgetc(file);
-    if (c == EOF) {
-      break;
-    }
-    if (c == '\n') {
+    if (c == EOF || c == '\n') {
       break;
     }
     if (c == '\r') {
@@ -39,13 +36,12 @@ static int read_line(FILE *file, char *buf, int buf_size) {
     }
     if (!begun) {
       if (c == ' ' || c == '\t') {
-	continue;
+        continue;
       } else {
-	begun = 1;
+        begun = 1;
       }
     }
-    buf[pos] = c;
-    ++pos;
+    buf[pos++] = c;
     if (pos == buf_size - 1) {
       break;
     }
@@ -94,7 +90,8 @@ static int read_string(const char *src, char *dst)
 
 /**
  * @todo FIXME Multiple files in same cue sheet
- * @todo FIXME Major cleanup - full rewrite probably not necessary. */
+ * @todo FIXME Major cleanup - full rewrite probably not necessary.
+ */
 void cue_read(const char* path)
 {
   FILE *file;
@@ -205,6 +202,9 @@ void cue_read(const char* path)
       if (!file_track) {
         break;
       }
+      
+      library_clear_url(url);
+      
     }
     
     if (!file_track) {
