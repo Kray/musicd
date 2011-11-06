@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
   config_init();
   /*config_set("log-level", "debug");*/
   config_set_hook("log-level", log_level_changed);
-  config_set("config", "/etc/musicd.conf");
+  /*config_set("config", "/etc/musicd.conf");*/
   config_set("bind", "any");
   config_set("port", "6800");
   
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
     return 0;
   }
   
-  if (config_load_file(config_get("config"))) {
+  if (config_get_value("config") && config_load_file(config_get("config"))) {
     musicd_log(LOG_FATAL, "main", "Could not read config file.");
     return -1;
   }
