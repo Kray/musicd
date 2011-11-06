@@ -164,8 +164,8 @@ static int msg_auth(client_t *client, char *p)
   user = str_read(&p);
   pass = str_read(&p);
   
-  if (strcmp(user, config_get("user"))
-   || strcmp(pass, config_get("password"))) {
+  if (!user || strcmp(user, config_get("user"))
+   || !pass || strcmp(pass, config_get("password"))) {
     free(user);
     free(pass);
     return client_error(client, "invalid_login");
