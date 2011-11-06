@@ -35,11 +35,11 @@ void musicd_log(int level, const char* subsys, const char* fmt, ...)
   if (level > log_level) {
     return;
   }
-  printf("[%s]:%s: ",log_prefix[level], subsys);
+  fprintf(stderr, "[%s]:%s: ",log_prefix[level], subsys);
   va_start(va_args, fmt);
-  vprintf(fmt, va_args);
+  vfprintf(stderr, fmt, va_args);
   va_end(va_args);
-  printf("\n");
+  fprintf(stderr, "\n");
 }
 
 void musicd_perror(int level, const char* subsys, const char* fmt, ... )
@@ -48,11 +48,11 @@ void musicd_perror(int level, const char* subsys, const char* fmt, ... )
   if (level > log_level) {
     return;
   }
-  printf("[%s]:%s: ",log_prefix[level], subsys);
+  fprintf(stderr, "[%s]:%s: ",log_prefix[level], subsys);
   va_start(va_args, fmt);
-  vprintf(fmt, va_args);
+  vfprintf(stderr, fmt, va_args);
   va_end(va_args);
-  printf(": %s\n", strerror(errno));
+  fprintf(stderr, ": %s\n", strerror(errno));
 }
 
 void log_level_changed(char *level)
