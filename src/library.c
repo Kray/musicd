@@ -314,7 +314,8 @@ track_t *library_track_by_id(int id)
     "SELECT tracks.rowid AS id, urls.url AS url, tracks.number AS number, tracks.name AS name, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql, sqlite3_errmsg(db));
+    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql,
+               sqlite3_errmsg(db));
     return NULL;
   }
   
@@ -345,12 +346,89 @@ track_t *library_track_by_id(int id)
   return track;
 }
 
+/**
+ * Used by check_urls.
+ */
+static void delete_url(const char *url)
+{
+  sqlite3_stmt *stmt;
+
+  static const char *sql = "DELETE FROM urls WHERE url = ?";
+  
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
+               sqlite3_errmsg(db));
+    return;
+  }
+
+  sqlite3_bind_text(stmt, 1, url, -1, NULL);
+  
+  if (sqlite3_step(stmt) != SQLITE_DONE) {
+    musicd_log(LOG_ERROR, "library",
+               "library_clear_url: sqlite3_step failed.");
+  }
+  
+  sqlite3_finalize(stmt);
+}
+
 
 static int interrupted = 0;
 
 static void scan_signal_handler()
 {
   interrupted = 1;
+}
+
+/**
+ * Stats all urls - if can't stat or not regular file, remove the url and
+ * associated tracks.
+ * @todo FIXME Also handle possible erased artists, albums, and so on.
+ */
+static void check_urls()
+{
+  sqlite3_stmt *stmt;
+  static const char *sql = "SELECT url FROM urls";
+  int result;
+  const char *url;
+  struct stat status;
+  
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
+               sqlite3_errmsg(db));
+    return;
+  }
+  
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    if (interrupted) {
+      signal(SIGINT, NULL);
+      return;
+    }
+    
+    url = (const char*)sqlite3_column_text(stmt, 0);
+    
+    if (!url) {
+      /* What? This shouldn't happen. Clear the url anyway. */
+      musicd_log(LOG_WARNING, "library",
+                 "Empty url in database. This is probably caused by a bug.");
+    } else {
+      if (!stat(url, &status)) {
+        if (S_ISREG(status.st_mode)) {
+          /* Regular file. Nothing to see here. */
+          continue;
+        }
+      }
+    }
+    
+    /* We didn't get url, file can't be statted or it isn't a regular file.
+     * Get rid of it and tracks associated with it. */
+    musicd_log(LOG_DEBUG, "library", "remove entries for removed url '%s'",
+               url);
+    library_clear_url(url);
+    delete_url(url);
+  }
+  if (result != SQLITE_DONE) {
+    musicd_log(LOG_ERROR, "library", "check_urls: sqlite3_step failed.");
+  }
 }
 
 static void
@@ -495,6 +573,8 @@ void library_scan(const char *raw_path)
   }
   
   musicd_log(LOG_INFO, "library", "Start scan.");
+  
+  check_urls();
   scan_dir(path);
   
   if (interrupted) {
