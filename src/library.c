@@ -467,9 +467,9 @@ iterate_dir(const char *path,
     sprintf(filepath, "%s/%s", path, entry->d_name);
     extension = entry->d_name + strlen(entry->d_name) - 3;
    
-    /* Stat only if this is a symbolic link, as there is no need to resolve
-     * anything with stat otherwise. */
-    if (entry->d_type == DT_LNK) {
+    /* Stat only if file type is not available or this is a symbolic link, as
+     * there is no need to resolve anything with stat otherwise. */
+    if (entry->d_type == 0 || entry->d_type == DT_LNK) {
       if (stat(filepath, &status)) {
         goto next;
       }
@@ -548,8 +548,7 @@ static void scan_files_cb(const char *path, const char *ext)
   if (!track) {
     return;
   }
-  
-  musicd_log(LOG_DEBUG, "library", "SET");
+
   library_set_url_mtime(path, status.st_mtime);
 
   library_add(track);
