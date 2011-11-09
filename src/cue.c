@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <libgen.h>
 
 static int read_line(FILE *file, char *buf, int buf_size) {
   int c, begun = 0, pos = 0;
@@ -99,7 +100,8 @@ void cue_read(const char* path)
   time_t mtime, cue_mtime;
   struct stat status;
   char line[1024], instr[16], string1[512], *ptr;
-  char url[strlen(path) + 1024 + 2], album[512], albumartist[512];
+  char url[strlen(path) + 1024 + 2], cueurl[strlen(path) + 1024 + 2];
+  char album[512], albumartist[512];
   int i, header_read = 0;
   int index, mins, secs, frames;
   /* Track is stored in prev_track until index of the following track is known.
@@ -174,7 +176,6 @@ void cue_read(const char* path)
                                        "is currently unsupported. Sorry.");
         break;
       }
-      /*musicd_log(LOG_DEBUG, "cue", "file: %s", string1);*/
       
       header_read = 1;
       
@@ -196,7 +197,24 @@ void cue_read(const char* path)
       /* Set the highest corresponding timestamp in database. This way the url
        * won't be rescanned when looking for ordinary track files.
        */
-      library_set_url_mtime(url, cue_mtime > status.st_mtime ? cue_mtime : status.st_mtime);
+      library_set_url_mtime(url, cue_mtime > status.st_mtime ?
+                                 cue_mtime : status.st_mtime);
+      
+      /* Prioritizing: if there are multiple cue sheets and a cue sheet with
+       * same base name as the track file exists, it is used for the track.
+       * otherwise, sheet with highest mtime will result to be selected.
+       */
+      for (i = strlen(url) - 1; i > 0 && url[i] != '.'; --i) { }
+      strncpy(cueurl, url, i);
+      strcpy(cueurl + i, ".cue");
+      
+      if (strcmp(path, cueurl) && stat(cueurl, &status) == 0) {
+        musicd_log(LOG_DEBUG, "cue",
+                   "Multiple cue sheets for '%s', selecting '%s'",
+                   url, cueurl);
+        cue_read(cueurl);
+        break;
+      }
       
       file_track = track_from_url(url);
       if (!file_track) {
@@ -204,7 +222,8 @@ void cue_read(const char* path)
       }
       
       library_clear_url(url);
-      
+     
+      continue;
     }
     
     if (!file_track) {
