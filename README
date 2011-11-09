@@ -12,9 +12,8 @@ A reference client QMDC is available at http://github.com/Kray/qmdc
 
 Requirements
 ============
-  * C compiler (tested with gcc, tcc won't do because libav* require C99)
-  * libavformat new enough
-  * libavcodec new enough
+  * C compiler (tested with gcc, tcc won't do because libav requires C99)
+  * libav (also known as ffmpeg) new enough
   * libsqlite3
 
 Copyright
