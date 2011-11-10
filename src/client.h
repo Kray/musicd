@@ -27,8 +27,8 @@
 typedef struct client {
   int fd;
   
-  int protocol;
-  char *name;
+  char *buf;
+  int buf_size;
   
   char *user;
   

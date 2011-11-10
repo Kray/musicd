@@ -34,6 +34,8 @@ client_t *client_new(int fd)
   
   result->fd = fd;
   
+  client_send(result, "musicd\nprotocol=1\n\n");
+  
   return result;
 }
 
@@ -44,125 +46,108 @@ void client_close(client_t *client)
   }
   
   close(client->fd);
-  free(client->name);
   free(client->user);
   free(client);
 }
 
-static char *str_read(char **string)
+void client_send_track(client_t *client, track_t* track)
 {
-  char *result, *p;
-  int len = 0;
+  char line[1025];
   
-  if (**string == '\n' || **string == '\0') {
-    return NULL;
-  }
-  
-  for (p = *string; ; ++p) {
-    if (*p == ' ' || *p == '\n' || *p == '\0') {
-      break;
-    }
-    if (*p == '\\') {
-      ++len;
-      ++p;
-    }
-    ++len;
-  }
-
-  result = calloc(len + 2, sizeof(char));
-  len = 0;
-  for (p = *string; ; ++p) {
-    if (*p == '\\') {
-      result[len++] = *(++p);
-      continue;
-    }
+  client_send(client, "track\n");
     
-    if (*p == ' ') {
-      ++p;
-      break;
-    }
-    if (*p == '\n' || *p == '\0') {
-      break;
-    }
-    result[len++] = *p;
-  }
-  result[len + 1] = '\0';
-  *string = p;
+  snprintf(line, 1024, "id=%i\n", track->id);
+  client_send(client, line);
+  
+  snprintf(line, 1024, "track=%i\n", track->number);
+  client_send(client, line);
+  
+  snprintf(line, 1024, "title=%s\n", track->name);
+  client_send(client, line);
+  
+  snprintf(line, 1024, "artist=%s\n", track->artist);
+  client_send(client, line);
+  
+  snprintf(line, 1024, "album=%s\n", track->album);
+  client_send(client, line);
+  
+  snprintf(line, 1024, "duration=%i\n", track->duration);
+  client_send(client, line);
+
+  client_send(client, "\n");
+}
+
+
+static char *line_read(char **string)
+{
+  char *result, *begin = *string;
+  for (; **string != '\n' && **string != '\0'; ++(*string)) { }
+  result = malloc(*string - begin + 1);
+  strncpy(result, begin, *string - begin);
+  result[*string - begin] = '\0';
+  ++*string;
   return result;
 }
 
-static char *escape_string(const char *src)
+static char *get_str(char *src, const char *key)
 {
-  if (!src) {
-    return strdup("");
-  }
+  char *end, *result;
+  char search[strlen(key) + 2];
+  snprintf(search, strlen(key) + 2, "%s=", key);
   
-  /* Enough for escaping all characters, as escape codes are two characters. */
-  char tmp[strlen(src) * 2 + 1];
-  int pos = 0;
-  
-  for (; *src != '\0';) {
-    switch (*src) {
-    case ' ':
-      tmp[pos++] = '\\';
-      tmp[pos] = ' ';
-      break;
-    case '\n':
-      tmp[pos++] = '\\';
-      tmp[pos] = 'n';
-      break;
-    case '\\':
-      tmp[pos++] = '\\';
-      tmp[pos] = '\\';
-      break;
-    default:
-      tmp[pos] = *src;
+  for (; *src != '\n' && *src != '\0';) {
+    if (!strncmp(src, search, strlen(key) + 1)) {
+
+      for (; *src != '='; ++src) { }
+      ++src;
+      for (end = src; *end != '\n' && *end != '\0'; ++end) { }
+
+      result = malloc(end - src + 1);
+      strncpy(result, src, end - src);
+      result[end - src] = '\0';
+
+      return result;
     }
-    ++src; ++pos;
+    
+    for (; *src != '\n'; ++src) { }
+    ++src;
   }
-  tmp[pos] = '\0';
-  return strdup(tmp);
+  return NULL;
 }
 
-static int str_read_int(char **string, int* result)
+static int get_int(char *src, const char *key)
 {
-  char *str = str_read(string);
-  int n = sscanf(str, "%i", result);
-  free(str);
-  return n != 1;
+  int result;
+  char search[strlen(key) + 4];
+  snprintf(search, strlen(key) + 4, "%s=%%i", key);
+  
+  for (; *src != '\n' && *src != '\0';) {
+    if (sscanf(src, search, &result)) {
+      return result;
+    }
+    for (; *(src - 1) != '\n'; ++src) { }
+  }
+  return 0;
 }
 
 static int client_error(client_t *client, const char *code)
 {
   char buffer[strlen(code) + 8];
   
-  sprintf(buffer, "error %s\n", code);
+  sprintf(buffer, "error\nname=%s\n\n", code);
   write(client->fd, buffer, strlen(buffer));
   return -1;
 }
 
-static int msg_hello(client_t *client, char *p)
-{
-  
-  if (str_read_int(&p, &client->protocol)) {
-    return client_error(client, "syntax");
-  }
-  
-  client->protocol = 1;
-  client->name = str_read(&p);
-  
-  musicd_log(LOG_INFO, "server", "Client '%s'.", client->name);
-  
-  client_send(client, "hello 1 musicd 0.0.1\n");
-  return 0;
-}
 
 static int msg_auth(client_t *client, char *p)
 {
   char *user, *pass;
   
-  user = str_read(&p);
-  pass = str_read(&p);
+  user = get_str(p, "user");
+  pass = get_str(p, "password");
+  
+  musicd_log(LOG_DEBUG, "client", "%s %s", user, pass);
   
   if (!user || strcmp(user, config_get("user"))
    || !pass || strcmp(pass, config_get("password"))) {
@@ -175,25 +160,23 @@ static int msg_auth(client_t *client, char *p)
   
   free(pass);
   
-  client_send(client, "auth admin\n");
+  client_send(client, "auth\n\n");
   return 0;
 }
 
 
 static int msg_search(client_t *client, char *p)
 {
-  char line[1025];
   char *search, *needle;
-  char *title, *artist, *album;
   
-  search = str_read(&p);
+  search = get_str(p, "query");
   
   if (!search) {
-    client_send(client, "error no_query\n");
+    client_error(client, "no_query");
     return 0;
   }
   
-  needle = calloc(strlen(search) + 2 + 1, sizeof(char));
+  needle = malloc(strlen(search) + 2 + 1);
   
   sprintf(needle, "%%%s%%", search);
   
@@ -206,27 +189,14 @@ static int msg_search(client_t *client, char *p)
   
   track_t track;
   while (!library_search_next(query, &track)) {
-    title = escape_string(track.name);
-    artist = escape_string(track.artist);
-    album = escape_string(track.album);
-    
-    snprintf(line, 1024, "track %i number=%i title=%s artist=%s album=%s "
-                          "duration=%i\n",
-             track.id, track.number, title, artist, album, track.duration);
-    client_send(client, line);
-    
-    /*musicd_log(LOG_DEBUG, "main", "%s", line);*/
-    
-    free(title);
-    free(artist);
-    free(album);
+    client_send_track(client, &track);
   }
   
   library_search_close(query);
   
   free(needle);
   
-  client_send(client, "search\n");
+  client_send(client, "search\n\n");
   return 0;
 }
 
@@ -235,13 +205,12 @@ static int msg_open(client_t *client, char *p)
   char line[1025];
   track_t *track;
   int id;
-  char *title, *artist, *album;
   
-  sscanf(p, "%d", &id);
+  id = get_int(p, "id");
   
   track = library_track_by_id(id);
   if (!track) {
-    client_send(client, "error track_not_found\n");
+    client_error(client, "track_not_found");
     return -1;
   }
   
@@ -251,37 +220,31 @@ static int msg_open(client_t *client, char *p)
   
   client->track_stream = track_stream_open(track);
   if (!client->track_stream) {
-    client_send(client, "error cannot_open\n");
+    client_error(client, "cannot_open");
     return -1;
   }
   
+  client_send_track(client, track);
   
+  client_send(client, "open\n");
   
-  title = escape_string(client->track_stream->track->name);
-  artist = escape_string(client->track_stream->track->artist);
-  album = escape_string(client->track_stream->track->album);
-  
-  snprintf(line, 1024, "open %i number=%i title=%s artist=%s album=%s "
-                       "duration=%i codec=%s samplerate=%i bitspersample=%i "
-                        "channels=%i payload=%i\n",
-           id, client->track_stream->track->number, title, artist, album,
-           client->track_stream->track->duration,
-           client->track_stream->codec,
-           client->track_stream->samplerate,
-           client->track_stream->bitspersample,
-           client->track_stream->channels,
-           client->track_stream->extradata_size);
-  
-  free(title);
-  free(artist);
-  free(album);
-  
-  /*musicd_log(LOG_DEBUG, "main", "%s", line);*/
+  snprintf(line, 1024, "codec=%s\n", client->track_stream->codec);
+  client_send(client, line);
+  snprintf(line, 1024, "samplerate=%i\n", client->track_stream->samplerate);
+  client_send(client, line);
+  snprintf(line, 1024, "bitspersample=%i\n",
+           client->track_stream->bitspersample);
+  client_send(client, line);
+  snprintf(line, 1024, "channels=%i\n", client->track_stream->channels);
   client_send(client, line);
   
   if (client->track_stream->extradata_size > 0) {
+    sprintf(line, "extradata:=%i\n\n", client->track_stream->extradata_size);
+    client_send(client, line);
     write(client->fd, client->track_stream->extradata,
           client->track_stream->extradata_size);
+  } else {
+    client_send(client, "\n");
   }
   
   return 0;
@@ -293,30 +256,30 @@ static int msg_seek(client_t *client, char *p)
   int result;
   
   if (!client->track_stream) {
-    client_send(client, "error nothing_open\n");
+    client_error(client, "nothing_open");
     return -1;
   }
   
-  sscanf(p, "%i", &position);
+  position = get_int(p, "position");
   
   result = track_stream_seek(client->track_stream, position);
     
   if (result < 0) {
-    client_send(client, "error cannot_seek\n");
+    client_error(client, "cannot_seek");
     return -1;
   }
   
-  client_send(client, "seek\n");
+  client_send(client, "seek\n\n");
   return 0;
 }
 
 int client_process(client_t *client)
 {
-  char buffer[1024];
+  char *tmp, buffer[1025];
   int n, result;
   char *method;
   
-  n = read(client->fd, buffer, 1023);
+  n = read(client->fd, buffer, 1024);
   if (n == 0) {
     musicd_log(LOG_INFO, "client", "Client exits.");
     return 1;
@@ -326,21 +289,31 @@ int client_process(client_t *client)
     return 1;
   }
   
-  buffer[n] = '\0';
+  if (client->buf_size == 0) {
+    client->buf = malloc(n + 1);
+  } else {
+    tmp = malloc(client->buf_size + n + 1);
+    memcpy(tmp, client->buf, client->buf_size);
+    free(client->buf);
+    client->buf = tmp;
+  }
+  
+  memcpy(client->buf + client->buf_size, buffer, n);
+  client->buf_size += n;
+  
+  if (client->buf[client->buf_size - 2] != '\n'
+   || client->buf[client->buf_size - 1] != '\n') {
+    /* Data not fed yet. */
+    return 0;
+  }
+  
+  client->buf[client->buf_size] = '\0';
 
-  char *p = buffer;
-  method = str_read(&p);
-  musicd_log(LOG_VERBOSE, "client", "Method: %s", method);
+  char *p = client->buf;
   
-  if (!strcmp(method, "hello")) {
-    result = msg_hello(client, p);
-    goto exit;
-  }
+  method = line_read(&p);
   
-  if (client->protocol == 0) {
-    client_error(client, "protocol_undefined");
-    goto exit;
-  }
+  musicd_log(LOG_VERBOSE, "client", "Method: '%s'", method);
   
   if (!strcmp(method, "auth")) {
     result = msg_auth(client, p);
@@ -367,11 +340,14 @@ int client_process(client_t *client)
     goto exit;
   }
   
-  client_send(client, "error unknown_method\n");
+  client_error(client, "unknown_method");
   
   
 exit:
   free(method);
+  free(client->buf);
+  client->buf = NULL;
+  client->buf_size = 0;
   return result;
 }
 
@@ -387,10 +363,9 @@ int client_next_packet(client_t* client)
   uint8_t *data;
   int size;
   int64_t pts;
-  char line[1024];
+  char line[1025];
   
   if (!client->track_stream) {
-    /*client_send(client, "error no_track_open\n");*/
     /* what? */
     return -1;
   }
@@ -398,15 +373,20 @@ int client_next_packet(client_t* client)
   data = track_stream_read(client->track_stream, &size, &pts);
   
   if (!data) {
-    client_send(client, "packet payload=0\n");
+    client_send(client, "packet\npayload:=0\n\n");
     return 0;
   }
   
-  snprintf(line, 1023, "packet pts=%li payload=%i\n", pts, size);
+  client_send(client, "packet\n");
+  
+  snprintf(line, 1024, "pts=%li\n", pts);
   client_send(client, line);
   
-  /*musicd_log(LOG_DEBUG, "main", "%s", line);*/
+  snprintf(line, 1024, "payload:=%i\n", size);
+  client_send(client, line);
   
+  client_send(client, "\n");
+
   write(client->fd, data, size);
   
   return 0;
