@@ -276,7 +276,7 @@ static int msg_seek(client_t *client, char *p)
 int client_process(client_t *client)
 {
   char *tmp, buffer[1025];
-  int n, result;
+  int n, result = 0;
   char *method;
   
   n = read(client->fd, buffer, 1024);
