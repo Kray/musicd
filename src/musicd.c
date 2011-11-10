@@ -101,8 +101,6 @@ exit:
 
 int main(int argc, char* argv[])
 { 
-  (void)argc; (void)argv;
-  
   config_init();
   /*config_set("log-level", "debug");*/
   config_set_hook("log-level", log_level_changed);
