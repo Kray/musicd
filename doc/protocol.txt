@@ -1,5 +1,5 @@
-musicd protocol, version 1 (Working draft)
-==========================================
+musicd protocol, version 1
+==========================
 
 Messages are of following structure:
 

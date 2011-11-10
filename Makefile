@@ -10,7 +10,7 @@ SRCS =  src/client.c \
 
 DEPS = $(SRCS)
 
-CFLAGS = -g -Wall -Wextra
+CFLAGS += -g -Wall -Wextra
 
 LIBS = -lavutil -lavcodec -lavformat -lsqlite3
 
@@ -24,3 +24,5 @@ install: musicd
 	install -m 0775 musicd $(PREFIX)/bin/
 	install -d $(PREFIX)/share/doc/musicd/
 	install -m 644 doc/* $(PREFIX)/share/doc/musicd/
+	install -d $(PREFIX)/share/man/man1/
+	install doc/musicd.1 $(PREFIX)/share/man/man1/

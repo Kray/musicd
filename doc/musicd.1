@@ -1,0 +1,47 @@
+.TH "Music Daemon" 1
+
+.SH NAME
+musicd \- a daemon for indexing and streaming music.
+
+.SH SYNOPSIS
+musicd [CONFIG...] [OPTION]
+
+.SH DESCRIPTION
+musicd is a daemon for indexing ans streaming music collection. It supports all
+file formats supported by libavformat and libavcodec.
+
+.SH OPTIONS
+.IP --config <PATH>
+Configuration file path. 
+.IP --no-config <BOOL>
+If set to true, no config file is attempted to read.
+
+.SH Configuration
+
+These options are essentially same that can be set in configuration file. Refer
+to doc/musicd.conf for more details.
+
+.IP --music-directory
+Directory where musicd scans for music.
+.IP --db-file
+Path where musicd saves its database.
+.IP --bind
+Interface or Unix socket where bind to.
+.IP --port
+Port of interface where bind to.
+.IP --log-level
+Maximum verbosity of log messages. Valid values are fatal, error, warning,
+info, verbose, debug and default. The default is info.
+.IP --user
+User name for accessing the daemon. Only one can currently be specified.
+.IP --password
+Password for the user.
+
+.SH TRAILING OPTION
+.IP --help
+Show help and exit.
+.IP --version
+Show version info and exit.
+
+.SH AUTHOR
+Konsta Kokkinen (kray@tsundere.fi)
