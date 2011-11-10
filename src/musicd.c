@@ -18,13 +18,14 @@
 #include "musicd.h"
 
 #include "config.h"
-#include "cue.h"
 #include "libav.h"
 #include "library.h"
 #include "log.h"
 #include "server.h"
 #include "track.h"
 
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 
@@ -34,8 +35,10 @@ void print_usage(char *arg0)
   printf("  %s [CONFIG...] [OPTION]\n\n", arg0);
   printf("musicd, a daemon for indexing and streaming music.\n\n");
   printf("Configuration:\n");
-  printf("  --config <PATH>\tSpecify configuration file path. Default is "
-         "/etc/musicd.conf\n\n");
+  printf("  --config <PATH>\tConfiguration file path. Default is "
+         "~/.musicd/musicd.conf\n\n");
+  printf("  --no-config <BOOL>\tIf set to true, no config file is attempted "
+         "to read.\n\n");
   printf("  Any configuration option can be passed in format --key value.\n");
   printf("  Refer to doc/musicd.conf on configuration options.\n\n");
   printf("Trailing option:\n");
@@ -50,8 +53,50 @@ void print_version()
  
   printf("libavformat version: %s\n", LIBAVFORMAT_IDENT);
   printf("libavcodec version: %s\n", LIBAVCODEC_IDENT);
+  printf("libavutil version: %s\n", LIBAVUTIL_IDENT);
   
   /** @todo TODO libav supported formats and codecs. */
+}
+
+/**
+ * Create ~/.musicd/ and ~/.musicd/musicd.conf
+ */
+static void create_default_paths()
+{
+  char *home, *path;
+  struct stat status;
+  FILE *file;
+  
+  home = getenv("HOME");
+  if (!home) {
+    musicd_log(LOG_ERROR, "main", "$HOME is not set.");
+    return;
+  }
+  
+  path = malloc(strlen(home) + 20 + 1);
+  
+  sprintf(path, "%s/.musicd/", home);
+  if (stat(path, &status)) {
+    if (mkdir(path, 0777)) {
+      musicd_perror(LOG_ERROR, "main", "Could not create directory %s", path);
+      goto exit;
+    }
+  }
+  
+  sprintf(path, "%s/.musicd/musicd.conf", home);
+  if (stat(path, &status)) {
+    file = fopen(path, "w");
+    if (!file) {
+      musicd_perror(LOG_ERROR, "main", "Could not create file %s", path);
+      goto exit;
+    }
+    fprintf(file,"# See man musicd or example musicd.conf distributed with "
+                 "musicd.\n");
+    fclose(file);
+  }
+  
+exit:
+  free(path);
 }
 
 int main(int argc, char* argv[])
@@ -61,7 +106,8 @@ int main(int argc, char* argv[])
   config_init();
   /*config_set("log-level", "debug");*/
   config_set_hook("log-level", log_level_changed);
-  /*config_set("config", "/etc/musicd.conf");*/
+  config_set("config", "~/.musicd/musicd.conf");
+  config_set("db-file", "~/.musicd/musicd.db");
   config_set("bind", "any");
   config_set("port", "6800");
   
@@ -80,7 +126,10 @@ int main(int argc, char* argv[])
     return 0;
   }
   
-  if (config_get_value("config") && config_load_file(config_get("config"))) {
+  create_default_paths();
+  
+  if (!config_to_bool("no-config")
+   && config_load_file(config_to_path("config"))) {
     musicd_log(LOG_FATAL, "main", "Could not read config file.");
     return -1;
   }

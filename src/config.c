@@ -281,6 +281,18 @@ int config_to_int(const char *key)
   return result;
 }
 
+int config_to_bool(const char* key)
+{
+  setting_t *setting = setting_by_key(key);
+  if (!setting) {
+    return 0;
+  }
+  if (!strcmp("false", setting->value)) {
+    return 0;
+  }
+  return 1;
+}
+
 
 void config_set(const char *key, const char *value)
 {

@@ -51,6 +51,8 @@ char *config_to_path(const char *key);
  */
 int config_to_int(const char *key);
 
+int config_to_bool(const char *key);
+
 void config_set(const char *key, const char *value);
 
 #endif
