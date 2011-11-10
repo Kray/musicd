@@ -81,9 +81,17 @@ track_t *track_from_url(const char *url)
   
   track->url = strdup(url);
   
-  track->name = copy_av_dict_value(avctx->metadata, "title");
-  if (!track->name) {
-    track->name = copy_av_dict_value(avctx->streams[0]->metadata, "title");
+  tmp = get_av_dict_value(avctx->metadata, "track");
+  if (!tmp) {
+    tmp = get_av_dict_value(avctx->streams[0]->metadata, "track");
+  }
+  if (tmp) {
+    sscanf(tmp, "%d", &track->track);
+  }
+  
+  track->title = copy_av_dict_value(avctx->metadata, "title");
+  if (!track->title) {
+    track->title = copy_av_dict_value(avctx->streams[0]->metadata, "title");
   }
   
   track->artist = copy_av_dict_value(avctx->metadata, "artist");
@@ -109,17 +117,9 @@ track_t *track_from_url(const char *url)
       avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
   }
   
-  tmp = get_av_dict_value(avctx->metadata, "track");
-  if (!tmp) {
-    tmp = get_av_dict_value(avctx->streams[0]->metadata, "track");
-  }
-  if (tmp) {
-    sscanf(tmp, "%d", &track->number);
-  }
-  
   musicd_log(LOG_DEBUG, "track",
-    "name=%s number=%i artist=%s albumartist=%s albumartist=%s duration=%i",
-    track->name, track->number, track->artist, track->album,
+    "track=%i title=%s artist=%s albumartist=%s albumartist=%s duration=%i",
+    track->track, track->title, track->artist, track->album,
     track->albumartist, track->duration);
   
   av_close_input_file(avctx);
@@ -133,7 +133,7 @@ void track_free(track_t *track)
   }
   
   free(track->url);
-  free(track->name);
+  free(track->title);
   free(track->artist);
   free(track->album);
   free(track->albumartist);

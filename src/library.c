@@ -165,7 +165,7 @@ int library_open()
   simple_exec("CREATE TABLE IF NOT EXISTS urls (url TEXT UNIQUE, mtime INT64)", &error);
   simple_exec("CREATE TABLE IF NOT EXISTS artists (name TEXT UNIQUE)", &error);
   simple_exec("CREATE TABLE IF NOT EXISTS albums (name TEXT UNIQUE, artist INT)", &error);
-  simple_exec("CREATE TABLE IF NOT EXISTS tracks (url INT, number INT, name TEXT, artist INT, album INT, start INT, duration INT)", &error);
+  simple_exec("CREATE TABLE IF NOT EXISTS tracks (url INT, track INT, title TEXT, artist INT, album INT, start INT, duration INT)", &error);
   
   if (error) {
     musicd_log(LOG_ERROR, "library", "Could not create database tables.");
@@ -189,7 +189,7 @@ int library_add(track_t *track)
   album = field_id("albums", "name", track->album);
   
   static const char *sql =
-    "INSERT INTO tracks (url, number, name, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
+    "INSERT INTO tracks (url, track, title, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
@@ -197,8 +197,8 @@ int library_add(track_t *track)
   }
   
   sqlite3_bind_int(stmt, 1, url);
-  sqlite3_bind_int(stmt, 2, track->number);
-  sqlite3_bind_text(stmt, 3, track->name, -1, NULL);
+  sqlite3_bind_int(stmt, 2, track->track);
+  sqlite3_bind_text(stmt, 3, track->title, -1, NULL);
   sqlite3_bind_int(stmt, 4, artist);
   sqlite3_bind_int(stmt, 5, album);
   sqlite3_bind_int(stmt, 6, track->start);
@@ -246,12 +246,7 @@ library_query_t *library_search(const char *search)
 {
   sqlite3_stmt *result;
   static const char *sql =
-    "SELECT tracks.rowid AS id, urls.url AS url, tracks.number AS number, tracks.name AS name, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.name, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
-      
-  /* WHERE tracks.name LIKE ? OR artists.name LIKE ? OR albums.name LIKE ? */
-  /* FIXME: The condition could simply be 'WHERE (tracks.name || artists.name || albums.name) LIKE ?'
-   * BUT it does not work for some strange reason - if there is an empty string, concatenation
-   * apparently returns NULL or something similar. */
+    "SELECT tracks.rowid AS id, urls.url AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
   
   if (sqlite3_prepare_v2(db, sql, -1, &result, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql, sqlite3_errmsg(db));
@@ -283,8 +278,8 @@ int library_search_next(library_query_t *query, track_t* track)
   
   track->id = sqlite3_column_int((sqlite3_stmt*)query, 0);
   track->url = (char*)sqlite3_column_text((sqlite3_stmt*)query, 1);
-  track->number = sqlite3_column_int((sqlite3_stmt*)query, 2);
-  track->name = (char*)sqlite3_column_text((sqlite3_stmt*)query, 3);
+  track->track = sqlite3_column_int((sqlite3_stmt*)query, 2);
+  track->title = (char*)sqlite3_column_text((sqlite3_stmt*)query, 3);
   track->artist = (char*)sqlite3_column_text((sqlite3_stmt*)query, 4);
   track->album = (char*)sqlite3_column_text((sqlite3_stmt*)query, 5);
   track->duration = sqlite3_column_int((sqlite3_stmt*)query, 6);
@@ -311,7 +306,7 @@ track_t *library_track_by_id(int id)
   track_t *track;
   int result;
   static const char *sql =
-    "SELECT tracks.rowid AS id, urls.url AS url, tracks.number AS number, tracks.name AS name, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
+    "SELECT tracks.rowid AS id, urls.url AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql,
@@ -332,15 +327,15 @@ track_t *library_track_by_id(int id)
   track = track_new();
   track->id = sqlite3_column_int(stmt, 0);
   track->url = dup_or_empty((const char*)sqlite3_column_text(stmt, 1));
-  track->number = sqlite3_column_int(stmt, 2);
-  track->name = dup_or_empty((const char*)sqlite3_column_text(stmt, 3));
+  track->track = sqlite3_column_int(stmt, 2);
+  track->title = dup_or_empty((const char*)sqlite3_column_text(stmt, 3));
   track->artist = dup_or_empty((const char*)sqlite3_column_text(stmt, 4));
   track->album = dup_or_empty((const char*)sqlite3_column_text(stmt, 5));
   track->start = sqlite3_column_int(stmt, 6);
   track->duration = sqlite3_column_int(stmt, 7);
   
   musicd_log(LOG_DEBUG, "library", "%i %s %i %s %s %s %i %i", track->id,
-             track->url, track->number, track->name, track->artist,
+             track->url, track->track, track->title, track->artist,
              track->album, track->start, track->duration);
   
   return track;

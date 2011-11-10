@@ -59,10 +59,10 @@ void client_send_track(client_t *client, track_t* track)
   snprintf(line, 1024, "id=%i\n", track->id);
   client_send(client, line);
   
-  snprintf(line, 1024, "track=%i\n", track->number);
+  snprintf(line, 1024, "track=%i\n", track->track);
   client_send(client, line);
   
-  snprintf(line, 1024, "title=%s\n", track->name);
+  snprintf(line, 1024, "title=%s\n", track->title);
   client_send(client, line);
   
   snprintf(line, 1024, "artist=%s\n", track->artist);

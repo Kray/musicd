@@ -166,8 +166,8 @@ void cue_read(const char* path)
       if (!header_read) {
         strcpy(album, string1);
       } else if (track) {
-        free(track->name);
-        track->name = strdup(string1);
+        free(track->title);
+        track->title = strdup(string1);
       }
     }
     if (!strcmp(instr, "FILE")) {
@@ -246,7 +246,7 @@ void cue_read(const char* path)
       
       track = track_new();
       track->url = strdup(url);
-      track->number = index;
+      track->track = index;
       /* Set artist same as the album artist and replace if track spefific
        * artist is later defined. */
       track->artist = strdup(albumartist);

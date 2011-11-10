@@ -25,12 +25,11 @@ typedef struct track {
   
   char *url;
   
-  char *name;
+  int track;
+  char *title;
   char *artist;
   char *album;
   char *albumartist;
-  
-  int number;
   
   int duration;
   
