@@ -171,10 +171,10 @@ static int msg_search(client_t *client, char *p)
   
   search = get_str(p, "query");
   
-  if (!search) {
+  /*if (!search) {
     client_error(client, "no_query");
     return 0;
-  }
+  }*/
   
   needle = malloc(strlen(search) + 2 + 1);
   

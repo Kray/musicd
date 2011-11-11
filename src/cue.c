@@ -158,6 +158,7 @@ void cue_read(const char* path)
       if (!header_read) {
         strcpy(albumartist, string1);
       } else if (track) {
+        free(track->artist);
         track->artist = strdup(string1);
       }
     }
