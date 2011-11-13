@@ -1,12 +1,15 @@
 SRCS =  src/client.c \
 	src/config.c \
 	src/cue.c \
+	src/format.c \
 	src/libav.c \
 	src/library.c \
 	src/log.c \
 	src/musicd.c \
 	src/server.c \
-	src/track.c
+	src/stream.c \
+	src/track.c \
+	src/transcoder.c
 
 DEPS = $(SRCS)
 

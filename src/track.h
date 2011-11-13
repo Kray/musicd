@@ -45,24 +45,4 @@ track_t *track_from_url(const char *url);
 void track_free(track_t *track);
 
 
-typedef struct track_stream {
-  track_t *track;
-  AVFormatContext *avctx;
-  AVPacket packet;
-  int at_end;
-  
-  const char *codec;
-  int samplerate;
-  int bitspersample;
-  int channels;
-  const uint8_t *extradata;
-  int extradata_size;
-  
-} track_stream_t;
-
-track_stream_t *track_stream_open(track_t *track);
-uint8_t *track_stream_read(track_stream_t *stream, int *size, int64_t *pts);
-int track_stream_seek(track_stream_t *stream, int position);
-void track_stream_close(track_stream_t *stream);
-
 #endif

@@ -115,15 +115,15 @@ static void *thread_func(void *data)
           break; /* Break, because poll_fds has changed. */
         }
 
-        if (client->track_stream && client->track_stream->at_end == 0) {
+        if (client->stream && client->stream->at_end == 0) {
           poll_fds[i + 1].events = POLLIN | POLLOUT;
         }
         
       } else if (poll_fds[i + 1].revents & POLLOUT) {
-        if (client->track_stream && client->track_stream->at_end == 0) {
+        if (client->stream && client->stream->at_end == 0) {
           client_next_packet(client);
         }
-        if (!client->track_stream || client->track_stream->at_end == 1) {
+        if (!client->stream || client->stream->at_end == 1) {
           poll_fds[i + 1].events = POLLIN;
         }
       }

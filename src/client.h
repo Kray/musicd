@@ -19,6 +19,7 @@
 #define MUSICD_CLIENT_H
 
 #include "libav.h"
+#include "stream.h"
 #include "track.h"
 
 #include <pthread.h>
@@ -32,7 +33,7 @@ typedef struct client {
   
   char *user;
   
-  track_stream_t *track_stream;
+  stream_t *stream;
   
   TAILQ_ENTRY(client) clients;
 } client_t;

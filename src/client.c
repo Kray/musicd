@@ -34,15 +34,15 @@ client_t *client_new(int fd)
   
   result->fd = fd;
   
-  client_send(result, "musicd\nprotocol=1\n\n");
+  client_send(result, "musicd\nprotocol=2\ncodecs=mp3\n\n");
   
   return result;
 }
 
 void client_close(client_t *client)
 {
-  if (client->track_stream) {
-    track_stream_close(client->track_stream);
+  if (client->stream) {
+    stream_close(client->stream);
   }
   
   close(client->fd);
@@ -109,7 +109,7 @@ static char *get_str(char *src, const char *key)
       return result;
     }
     
-    for (; *src != '\n'; ++src) { }
+    for (; *src != '\n' && (*src + 1) != '\0'; ++src) { }
     ++src;
   }
   return NULL;
@@ -125,7 +125,8 @@ static int get_int(char *src, const char *key)
     if (sscanf(src, search, &result)) {
       return result;
     }
-    for (; *(src - 1) != '\n'; ++src) { }
+    for (; *src != '\n' && (*src + 1) != '\0'; ++src) { }
+    ++src;
   }
   return 0;
 }
@@ -205,6 +206,9 @@ static int msg_open(client_t *client, char *p)
   char line[1025];
   track_t *track;
   int id;
+  char *codec;
+  int bitrate;
+  transcoder_t *transcoder;
   
   id = get_int(p, "id");
   
@@ -214,35 +218,48 @@ static int msg_open(client_t *client, char *p)
     return -1;
   }
   
-  if (client->track_stream) {
-    track_stream_close(client->track_stream);
+  if (client->stream) {
+    stream_close(client->stream);
   }
   
-  client->track_stream = track_stream_open(track);
-  if (!client->track_stream) {
+  client->stream = stream_open(track);
+  if (!client->stream) {
     client_error(client, "cannot_open");
     return -1;
+  }
+  
+  codec = get_str(p, "codec");
+  if (codec) {
+    bitrate = get_int(p, "bitrate");
+    /* No sense in re-encoding to same codec. */
+    if (strcmp(codec, client->stream->format->codec)) {
+      transcoder =
+        transcoder_open(&client->stream->src_format, codec, bitrate);
+      if (transcoder) {
+        stream_set_transcoder(client->stream, transcoder);
+      }
+    }
   }
   
   client_send_track(client, track);
   
   client_send(client, "open\n");
   
-  snprintf(line, 1024, "codec=%s\n", client->track_stream->codec);
+  snprintf(line, 1024, "codec=%s\n", client->stream->format->codec);
   client_send(client, line);
-  snprintf(line, 1024, "samplerate=%i\n", client->track_stream->samplerate);
+  snprintf(line, 1024, "samplerate=%i\n", client->stream->format->samplerate);
   client_send(client, line);
   snprintf(line, 1024, "bitspersample=%i\n",
-           client->track_stream->bitspersample);
+           client->stream->format->bitspersample);
   client_send(client, line);
-  snprintf(line, 1024, "channels=%i\n", client->track_stream->channels);
+  snprintf(line, 1024, "channels=%i\n", client->stream->format->channels);
   client_send(client, line);
   
-  if (client->track_stream->extradata_size > 0) {
-    sprintf(line, "extradata:=%i\n\n", client->track_stream->extradata_size);
+  if (client->stream->format->extradata_size > 0) {
+    sprintf(line, "extradata:=%i\n\n", client->stream->format->extradata_size);
     client_send(client, line);
-    write(client->fd, client->track_stream->extradata,
-          client->track_stream->extradata_size);
+    write(client->fd, client->stream->format->extradata,
+          client->stream->format->extradata_size);
   } else {
     client_send(client, "\n");
   }
@@ -255,14 +272,14 @@ static int msg_seek(client_t *client, char *p)
   int position;
   int result;
   
-  if (!client->track_stream) {
+  if (!client->stream) {
     client_error(client, "nothing_open");
     return -1;
   }
   
   position = get_int(p, "position");
   
-  result = track_stream_seek(client->track_stream, position);
+  result = stream_seek(client->stream, position);
     
   if (result < 0) {
     client_error(client, "cannot_seek");
@@ -365,12 +382,12 @@ int client_next_packet(client_t* client)
   int64_t pts;
   char line[1025];
   
-  if (!client->track_stream) {
+  if (!client->stream) {
     /* what? */
     return -1;
   }
   
-  data = track_stream_read(client->track_stream, &size, &pts);
+  data = stream_next(client->stream, &size, &pts);
   
   if (!data) {
     client_send(client, "packet\npayload:=0\n\n");
