@@ -104,6 +104,7 @@ int main(int argc, char* argv[])
   config_init();
   /*config_set("log-level", "debug");*/
   config_set_hook("log-level", log_level_changed);
+  config_set("log-time-format", "%H:%M:%S");
   config_set("config", "~/.musicd/musicd.conf");
   config_set("db-file", "~/.musicd/musicd.db");
   config_set("bind", "any");

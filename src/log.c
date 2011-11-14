@@ -17,17 +17,40 @@
  */
 #include "log.h"
 
+#include "config.h"
 #include "libav.h"
 
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 const char *log_prefix[] = 
   { "FATAL", "ERROR", "Warning", "Info", "Verbose", "Debug" };
 
 int log_level = LOG_INFO;
+
+static void print(int level, const char* subsys, const char* fmt, ...)
+{
+  time_t now;
+  const char *timefmt;
+  char timestr[128];
+  va_list va_args;
+  
+  now = time(NULL);
+  timefmt = config_get("log-time-format");
+  
+  if (strftime(timestr, sizeof(timestr), timefmt, localtime(&now)) == 0) {
+    timestr[0] = '\0';
+  }
+  
+  fprintf(stderr, "%s:[%s]:%s: ", timestr, log_prefix[level], subsys);
+  va_start(va_args, fmt);
+  vfprintf(stderr, fmt, va_args);
+  va_end(va_args);
+
+}
 
 void musicd_log(int level, const char* subsys, const char* fmt, ...)
 {
@@ -35,10 +58,7 @@ void musicd_log(int level, const char* subsys, const char* fmt, ...)
   if (level > log_level) {
     return;
   }
-  fprintf(stderr, "[%s]:%s: ",log_prefix[level], subsys);
-  va_start(va_args, fmt);
-  vfprintf(stderr, fmt, va_args);
-  va_end(va_args);
+  print(level, subsys, fmt, va_args);
   fprintf(stderr, "\n");
 }
 
@@ -48,10 +68,7 @@ void musicd_perror(int level, const char* subsys, const char* fmt, ... )
   if (level > log_level) {
     return;
   }
-  fprintf(stderr, "[%s]:%s: ",log_prefix[level], subsys);
-  va_start(va_args, fmt);
-  vfprintf(stderr, fmt, va_args);
-  va_end(va_args);
+  print(level, subsys, fmt, va_args);
   fprintf(stderr, ": %s\n", strerror(errno));
 }
 
