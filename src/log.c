@@ -31,12 +31,11 @@ const char *log_prefix[] =
 
 int log_level = LOG_INFO;
 
-static void print(int level, const char* subsys, const char* fmt, ...)
+static void print(int level, const char* subsys, const char* fmt, va_list va_args)
 {
   time_t now;
   const char *timefmt;
   char timestr[128];
-  va_list va_args;
   
   now = time(NULL);
   timefmt = config_get("log-time-format");
@@ -46,9 +45,7 @@ static void print(int level, const char* subsys, const char* fmt, ...)
   }
   
   fprintf(stderr, "%s:[%s]:%s: ", timestr, log_prefix[level], subsys);
-  va_start(va_args, fmt);
   vfprintf(stderr, fmt, va_args);
-  va_end(va_args);
 
 }
 
@@ -58,8 +55,10 @@ void musicd_log(int level, const char* subsys, const char* fmt, ...)
   if (level > log_level) {
     return;
   }
+  va_start(va_args, fmt);
   print(level, subsys, fmt, va_args);
   fprintf(stderr, "\n");
+  va_end(va_args);
 }
 
 void musicd_perror(int level, const char* subsys, const char* fmt, ... )
@@ -68,8 +67,10 @@ void musicd_perror(int level, const char* subsys, const char* fmt, ... )
   if (level > log_level) {
     return;
   }
+  va_start(va_args, fmt);
   print(level, subsys, fmt, va_args);
   fprintf(stderr, ": %s\n", strerror(errno));
+  va_end(va_args);
 }
 
 void log_level_changed(char *level)
