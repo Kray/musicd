@@ -79,6 +79,8 @@ static void *thread_func(void *data)
   int n, i;
   client_t *client;
   
+  signal(SIGPIPE, SIG_IGN);
+  
   while (1) {
     n = poll(poll_fds, poll_nfds, -1);
     if (n == -1) {
