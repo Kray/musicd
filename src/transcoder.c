@@ -17,7 +17,11 @@
  */
 #include "transcoder.h"
 
+#include "libav.h"
 #include "log.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
 {
@@ -61,15 +65,17 @@ transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
   result = avcodec_open(decoder, codec_in);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "Could not open decoder: %s",
-               AVUNERROR(result));
+               strerror(AVUNERROR(result)));
     goto fail;
   }
   
   encoder->sample_rate = format->samplerate;
+  /** @todo FIXME This won't work in all cases. */
+  encoder->sample_fmt = decoder->sample_fmt;
+  
   encoder->channels = format->channels;
   
-  /**
-   * @todo FIXME Hard-coded values. */
+  /** @todo FIXME Hard-coded values. */
   if (bitrate < 64000 || bitrate > 320000) {
     bitrate = 128000;
   }
@@ -79,7 +85,7 @@ transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
   result = avcodec_open(encoder, codec_out);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "Could not open encoder: %s",
-               AVUNERROR(result));
+               strerror(AVUNERROR(result)));
     avcodec_close(decoder);
     goto fail;
   }
@@ -133,7 +139,7 @@ static int decode_next(transcoder_t *transcoder, uint8_t *data, int src_size)
                                  &transcoder->avpacket);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "Could not decode: %s",
-               AVUNERROR(result));
+               strerror(AVUNERROR(result)));
     return -1;
   }
 
@@ -158,7 +164,7 @@ static int encode_next(transcoder_t *transcoder)
                                 FF_MIN_BUFFER_SIZE, (int16_t*)transcoder->buf);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "Could not encode: %s",
-                AVUNERROR(result));
+               strerror(AVUNERROR(result)));
     return -1;
   }
   
