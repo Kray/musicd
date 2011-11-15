@@ -169,6 +169,8 @@ static int msg_auth(client_t *client, char *p)
 static int msg_search(client_t *client, char *p)
 {
   char *search, *needle;
+  library_query_t *query;
+  track_t track;
   
   search = get_str(p, "query");
   
@@ -183,12 +185,11 @@ static int msg_search(client_t *client, char *p)
   
   free(search);
   
-  library_query_t *query = library_search(needle);
+  query = library_search(needle);
   if (!query) {
     musicd_log(LOG_ERROR, "main", "No query.");
   }
   
-  track_t track;
   while (!library_search_next(query, &track)) {
     client_send_track(client, &track);
   }
@@ -294,6 +295,7 @@ int client_process(client_t *client)
 {
   char *tmp, buffer[1025];
   int n, result = 0;
+  char *p;
   char *method;
   
   n = read(client->fd, buffer, 1024);
@@ -326,7 +328,7 @@ int client_process(client_t *client)
   
   client->buf[client->buf_size] = '\0';
 
-  char *p = client->buf;
+  p = client->buf;
   
   method = line_read(&p);
   

@@ -73,11 +73,11 @@ static client_t *find_client(int i) {
 
 
 static void *thread_func(void *data)
-{
-  (void)data;
-  
+{ 
   int n, i;
   client_t *client;
+  
+  (void)data;
   
   signal(SIGPIPE, SIG_IGN);
   

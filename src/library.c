@@ -161,7 +161,7 @@ int library_open()
     musicd_log(LOG_ERROR, "library", "Could not open database '%s': %s", file, sqlite3_errmsg(db));
     return -1;
   }
-  //id INTEGER PRIMARY KEY ASC,
+
   simple_exec("CREATE TABLE IF NOT EXISTS urls (url TEXT UNIQUE, mtime INT64)", &error);
   simple_exec("CREATE TABLE IF NOT EXISTS artists (name TEXT UNIQUE)", &error);
   simple_exec("CREATE TABLE IF NOT EXISTS albums (name TEXT UNIQUE, artist INT)", &error);
@@ -182,14 +182,14 @@ int library_add(track_t *track)
   int url, artist, album;
   sqlite3_stmt *stmt;
   
+  static const char *sql =
+    "INSERT INTO tracks (url, track, title, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
+
   /*musicd_log(LOG_DEBUG, "library", "%s %d %s", track->url, track->number, track->name);*/
   
   url = field_id("urls", "url", track->url);
   artist = field_id("artists", "name", track->artist);
   album = field_id("albums", "name", track->album);
-  
-  static const char *sql =
-    "INSERT INTO tracks (url, track, title, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
