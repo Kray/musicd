@@ -31,7 +31,8 @@ const char *log_prefix[] =
 
 int log_level = LOG_INFO;
 
-static void print(int level, const char* subsys, const char* fmt, va_list va_args)
+static void print
+  (int level, const char* subsys, const char* fmt, va_list va_args)
 {
   time_t now;
   const char *timefmt;
@@ -44,8 +45,19 @@ static void print(int level, const char* subsys, const char* fmt, va_list va_arg
     timestr[0] = '\0';
   }
   
+  if (level == LOG_ERROR) {
+    fprintf(stderr, "\033[1;31;40m");
+  }
+  if (level == LOG_FATAL) {
+    fprintf(stderr, "\033[0;1;41m");
+  }
+  
   fprintf(stderr, "%s:[%s]:%s: ", timestr, log_prefix[level], subsys);
   vfprintf(stderr, fmt, va_args);
+  
+  if (level <= LOG_ERROR) {
+    fprintf(stderr, "\033[0m");
+  }
 
 }
 
