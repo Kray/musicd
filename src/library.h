@@ -20,17 +20,27 @@
 
 #include "track.h"
 
+#include <stdbool.h>
 #include <time.h>
 
 int library_open();
-void library_scan(const char *directory);
 
 int library_add(track_t *track);
+
 
 /**
  * If tracks with such url exist, delete them.
  */
 void library_clear_url(const char *url);
+/**
+ * Deletes @p url entry and its associated tracks completely.
+ */
+void library_delete_url(const char *url);
+/**
+ * Iterates through all urls in database, calling @p callback for each.
+ * Stops when callback returns false or all urls have been iterated.
+ */
+void library_iterate_urls(bool (*callback)(const char *url));
 
 #if 0
 typedef enum {
@@ -80,8 +90,8 @@ typedef struct library_query_t library_query_t;
 
 
 library_query_t *library_search(const char *search);
-int library_search_next(library_query_t *query, track_t *track);
-void library_search_close(library_query_t *query);
+int library_query_next(library_query_t *query, track_t *track);
+void library_query_close(library_query_t *query);
 
 track_t *library_track_by_id(int id);
 

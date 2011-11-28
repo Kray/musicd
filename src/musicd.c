@@ -21,6 +21,7 @@
 #include "libav.h"
 #include "library.h"
 #include "log.h"
+#include "scan.h"
 #include "server.h"
 #include "track.h"
 
@@ -48,7 +49,7 @@ void print_usage(char *arg0)
 
 void print_version()
 {
-  printf("musicd (Music Daemon) 0.1.0\n\n");
+  printf("musicd (music daemon) %s\n\n", MUSICD_VERSION_STRING);
   printf("Copyright (C) 2011 Konsta Kokkinen <kray@tsundere.fi>\n\n");
  
   printf("libavformat version: %s\n", LIBAVFORMAT_IDENT);
@@ -137,7 +138,7 @@ int main(int argc, char* argv[])
    * overwritten them, and command line has the highest priority. */
   config_load_args(argc, argv);
   
-  musicd_log(LOG_INFO, "main", "musicd version 0.1.0");
+  musicd_log(LOG_INFO, "main", "musicd version %s", MUSICD_VERSION_STRING);
   
   av_register_all();
   avcodec_register_all();
@@ -158,7 +159,8 @@ int main(int argc, char* argv[])
     musicd_log(LOG_WARNING, "main", "music-directory not set, scanning will "
                                     "be disabled.");
   } else {
-    library_scan(config_to_path("music-directory"));
+    /*library_scan(config_to_path("music-directory"));*/
+    scan_start();
   }
   
   while (1) {

@@ -19,28 +19,11 @@
 
 #include "config.h"
 #include "cue.h"
+#include "db.h"
 #include "log.h"
-
-#include <dirent.h>
-#include <errno.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
 
 #include <sqlite3.h>
 
-static sqlite3 *db;
-
-static void simple_exec(const char *sql, int *error)
-{
-  int result = sqlite3_exec(db, sql, NULL, NULL, NULL);
-  if (result != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
-    *error = result;
-  }
-}
 
 /**
  * @returns first rowid from @p table where @p field = @p value. If no such row
@@ -53,8 +36,8 @@ static int field_id(const char *table, const char *field, const char *value)
   char sql[strlen(table) + strlen(field) + 64];
   
   sprintf(sql, "SELECT rowid FROM %s WHERE %s = ?", table, field);
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return -1;
   }
   
@@ -74,8 +57,8 @@ static int field_id(const char *table, const char *field, const char *value)
   sqlite3_finalize(stmt);
   
   sprintf(sql, "INSERT INTO %s (%s) VALUES (?)", table, field);
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return 0;
   }
 
@@ -87,7 +70,7 @@ static int field_id(const char *table, const char *field, const char *value)
     return 0;
   }
 
-  result = sqlite3_last_insert_rowid(db);
+  result = sqlite3_last_insert_rowid(db_handle());
   sqlite3_finalize(stmt);
   
   return result;
@@ -100,8 +83,8 @@ time_t library_get_url_mtime(const char *url)
   int result;
   static const char *sql = "SELECT mtime FROM urls WHERE url = ?";
   
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return -1;
   }
   
@@ -130,8 +113,8 @@ void library_set_url_mtime(const char *url, time_t mtime)
   
   id = field_id("urls", "url", url);
   
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return;
   }
   
@@ -148,7 +131,6 @@ void library_set_url_mtime(const char *url, time_t mtime)
 
 int library_open()
 {
-  int error = 0;
   char *file;
   
   file = config_to_path("db-file");
@@ -157,18 +139,8 @@ int library_open()
     return -1;
   }
   
-  if (sqlite3_open(file, &db) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not open database '%s': %s", file, sqlite3_errmsg(db));
-    return -1;
-  }
-
-  simple_exec("CREATE TABLE IF NOT EXISTS urls (url TEXT UNIQUE, mtime INT64)", &error);
-  simple_exec("CREATE TABLE IF NOT EXISTS artists (name TEXT UNIQUE)", &error);
-  simple_exec("CREATE TABLE IF NOT EXISTS albums (name TEXT UNIQUE, artist INT)", &error);
-  simple_exec("CREATE TABLE IF NOT EXISTS tracks (url INT, track INT, title TEXT, artist INT, album INT, start INT, duration INT)", &error);
-  
-  if (error) {
-    musicd_log(LOG_ERROR, "library", "Could not create database tables.");
+  if (db_open(file)) {
+    musicd_log(LOG_ERROR, "library", "Database couldn't be opened.");
     return -1;
   }
   
@@ -191,8 +163,8 @@ int library_add(track_t *track)
   artist = field_id("artists", "name", track->artist);
   album = field_id("albums", "name", track->album);
   
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return -1;
   }
   
@@ -222,8 +194,8 @@ void library_clear_url(const char *url)
   static const char *sql =
     "DELETE FROM tracks WHERE url = (SELECT rowid FROM urls WHERE url = ? LIMIT 1)";
   
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql, db_error());
     return;
   }
 
@@ -232,6 +204,61 @@ void library_clear_url(const char *url)
   if (sqlite3_step(stmt) != SQLITE_DONE) {
     musicd_log(LOG_ERROR, "library",
                "library_clear_url: sqlite3_step failed.");
+  }
+  
+  sqlite3_finalize(stmt);
+}
+
+
+void library_delete_url(const char *url)
+{
+  sqlite3_stmt *stmt;
+
+  static const char *sql = "DELETE FROM urls WHERE url = ?";
+  
+  library_clear_url(url);
+  
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
+               db_error());
+    return;
+  }
+
+  sqlite3_bind_text(stmt, 1, url, -1, NULL);
+  
+  if (sqlite3_step(stmt) != SQLITE_DONE) {
+    musicd_log(LOG_ERROR, "library",
+               "library_clear_url: sqlite3_step failed.");
+  }
+  
+  sqlite3_finalize(stmt);
+}
+
+void library_iterate_urls(bool (*callback)(const char *url))
+{
+  sqlite3_stmt *stmt;
+  static const char *sql = "SELECT url FROM urls";
+  int result;
+  const char *url;
+  bool cb_result;
+  
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
+               db_error());
+    return;
+  }
+  
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    url = (const char*)sqlite3_column_text(stmt, 0);
+    
+    cb_result = callback(url);
+    if (cb_result == false) {
+      break;
+    }
+  }
+  if (result != SQLITE_DONE) {
+    musicd_log(LOG_ERROR, "library",
+               "library_iterate_urls: sqlite3_step failed.");
   }
   
   sqlite3_finalize(stmt);
@@ -248,8 +275,8 @@ library_query_t *library_search(const char *search)
   static const char *sql =
     "SELECT tracks.rowid AS id, urls.url AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
   
-  if (sqlite3_prepare_v2(db, sql, -1, &result, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql, sqlite3_errmsg(db));
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &result, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql, db_error());
     return NULL;
   }
   
@@ -260,7 +287,7 @@ library_query_t *library_search(const char *search)
   return (library_query_t*)result;
 }
 
-int library_search_next(library_query_t *query, track_t* track)
+int library_query_next(library_query_t *query, track_t* track)
 {
   int result;
   
@@ -286,7 +313,7 @@ int library_search_next(library_query_t *query, track_t* track)
   return 0;
 }
 
-void library_search_close(library_query_t *query)
+void library_query_close(library_query_t *query)
 {
   sqlite3_finalize((sqlite3_stmt*)query);
 }
@@ -308,9 +335,9 @@ track_t *library_track_by_id(int id)
   static const char *sql =
     "SELECT tracks.rowid AS id, urls.url AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+  if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql,
-               sqlite3_errmsg(db));
+               db_error());
     return NULL;
   }
   
@@ -341,241 +368,4 @@ track_t *library_track_by_id(int id)
   return track;
 }
 
-/**
- * Used by check_urls.
- */
-static void delete_url(const char *url)
-{
-  sqlite3_stmt *stmt;
 
-  static const char *sql = "DELETE FROM urls WHERE url = ?";
-  
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
-               sqlite3_errmsg(db));
-    return;
-  }
-
-  sqlite3_bind_text(stmt, 1, url, -1, NULL);
-  
-  if (sqlite3_step(stmt) != SQLITE_DONE) {
-    musicd_log(LOG_ERROR, "library",
-               "library_clear_url: sqlite3_step failed.");
-  }
-  
-  sqlite3_finalize(stmt);
-}
-
-
-static int interrupted = 0;
-
-static void scan_signal_handler()
-{
-  interrupted = 1;
-}
-
-/**
- * Stats all urls - if can't stat or not regular file, remove the url and
- * associated tracks.
- * @todo FIXME Also handle possible erased artists, albums, and so on.
- */
-static void check_urls()
-{
-  sqlite3_stmt *stmt;
-  static const char *sql = "SELECT url FROM urls";
-  int result;
-  const char *url;
-  struct stat status;
-  
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not execute '%s': %s", sql,
-               sqlite3_errmsg(db));
-    return;
-  }
-  
-  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
-    if (interrupted) {
-      signal(SIGINT, NULL);
-      return;
-    }
-    
-    url = (const char*)sqlite3_column_text(stmt, 0);
-    
-    if (!url) {
-      /* What? This shouldn't happen. Clear the url anyway. */
-      musicd_log(LOG_WARNING, "library",
-                 "Empty url in database. This is probably caused by a bug.");
-    } else {
-      if (!stat(url, &status)) {
-        if (S_ISREG(status.st_mode)) {
-          /* Regular file. Nothing to see here. */
-          continue;
-        }
-      }
-    }
-    
-    /* We didn't get url, file can't be statted or it isn't a regular file.
-     * Get rid of it and tracks associated with it. */
-    musicd_log(LOG_DEBUG, "library", "remove entries for removed url '%s'",
-               url);
-    library_clear_url(url);
-    delete_url(url);
-  }
-  if (result != SQLITE_DONE) {
-    musicd_log(LOG_ERROR, "library", "check_urls: sqlite3_step failed.");
-  }
-}
-
-static void
-iterate_dir(const char *path,
-            void (*callback)(const char *path, const char *ext))
-{
-  DIR *dir;
-  struct dirent *entry;
-  struct stat status;
-  char *extension;
-  
-  /* + 256 4-bit UTF-8 characters + / and \0 
-   * More than enough on every platform really in use. */
-  char filepath[strlen(path) + 1024 + 2];
-  
-  if (!(dir = opendir(path))) {
-    /* Probably no read access - ok, we just omit. */
-    musicd_perror(LOG_WARNING, "library", "Could not open directory %s", path);
-    return;
-  }
-  
-  signal(SIGINT, scan_signal_handler);
-  
-  errno = 0;
-  while ((entry = readdir(dir))) {
-    if (interrupted) {
-      signal(SIGINT, NULL);
-      return;
-    }
-    
-    /* Omit hidden files and most importantly . and .. */
-    if (entry->d_name[0] == '.') {
-      goto next;
-    }
-    
-    sprintf(filepath, "%s/%s", path, entry->d_name);
-    extension = entry->d_name + strlen(entry->d_name) - 3;
-   
-    /* Stat only if file type is not available or this is a symbolic link, as
-     * there is no need to resolve anything with stat otherwise. */
-    if (entry->d_type == 0 || entry->d_type == DT_LNK) {
-      if (stat(filepath, &status)) {
-        goto next;
-      }
-      
-      if (S_ISDIR(status.st_mode)) {
-        iterate_dir(filepath, callback);
-        
-      } else if (S_ISREG(status.st_mode)) {
-        callback(filepath, extension);
-      }
-    } else {
-    
-      if (entry->d_type == DT_DIR) {
-        iterate_dir(filepath, callback);
-        goto next;
-      }
-      
-      if (entry->d_type != DT_REG) {
-        goto next;
-      }
-      
-      callback(filepath, extension);
-    }
-    
-  next:
-    errno = 0;
-  }
-  
-  closedir(dir);
-  
-  signal(SIGINT, NULL);
-  
-  if (errno) {
-    /* It was possible to open the directory but we can't iterate it anymore?
-     * Something's fishy. */
-    musicd_perror(LOG_ERROR, "library", "Could not iterate directory %s",
-                  path);
-  }
-}
-
-
-static void scan_cue_cb(const char *path, const char *ext)
-{  
-  if (strcasecmp(ext, "cue")) {
-    return;
-  }
-  cue_read(path);
-}
-
-static void scan_files_cb(const char *path, const char *ext)
-{
-  track_t *track;
-  struct stat status;
-  
-  if (!strcasecmp(ext, "cue")
-   || !strcasecmp(ext, "jpg")
-   || !strcasecmp(ext, "png")
-   || !strcasecmp(ext, "gif")
-  ) {
-    return;
-  }
-  
-  if (stat(path, &status)) {
-    return;
-  }
-  
-  if (library_get_url_mtime(path) >= status.st_mtime) {
-    return;
-  }
-  
-  library_clear_url(path);
-  
-  musicd_log(LOG_DEBUG, "library", "scan %s", path);
-  
-  track = track_from_url(path);
-  if (!track) {
-    return;
-  }
-
-  library_set_url_mtime(path, status.st_mtime);
-
-  library_add(track);
-  track_free(track);
-}
-
-static void scan_dir(const char *path)
-{
-  iterate_dir(path, scan_cue_cb);
-  iterate_dir(path, scan_files_cb);
-}
-
-void library_scan(const char *raw_path)
-{
-  char path[strlen(raw_path)];
-  strcpy(path, raw_path);
-  
-  /* Strip possible trailing / */
-  if (path[strlen(path) - 1] == '/') {
-    path[strlen(path) - 1] = '\0';
-  }
-  
-  musicd_log(LOG_INFO, "library", "Start scan.");
-  
-  check_urls();
-  scan_dir(path);
-  
-  if (interrupted) {
-    musicd_log(LOG_INFO, "library", "Scan interrupted, exiting...");
-    exit(0);
-  }
-  
-  musicd_log(LOG_INFO, "library", "Scan finished.");
-  
-}

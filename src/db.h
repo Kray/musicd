@@ -15,11 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with Musicd.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef MUSICD_CUE_H
-#define MUSICD_CUE_H
+#ifndef MUSICD_DB_H
+#define MUSICD_DB_H
 
-#include "track.h"
+int db_open(const char *file);
+void db_close();
 
-int cue_read(const char *path);
+const char *db_error();
+
+typedef struct sqlite3 sqlite3;
+sqlite3 *db_handle();
+
+void db_simple_exec(const char *sql, int *error);
+
+int db_meta_get_int(const char *key);
+void db_meta_set_int(const char *key, int value);
 
 #endif

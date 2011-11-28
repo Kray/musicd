@@ -1,11 +1,13 @@
 SRCS =  src/client.c \
 	src/config.c \
 	src/cue.c \
+	src/db.c \
 	src/format.c \
 	src/libav.c \
 	src/library.c \
 	src/log.c \
 	src/musicd.c \
+	src/scan.c \
 	src/server.c \
 	src/stream.c \
 	src/track.c \

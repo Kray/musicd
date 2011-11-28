@@ -15,11 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with Musicd.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef MUSICD_CUE_H
-#define MUSICD_CUE_H
+#ifndef MUSICD_SCAN_H
+#define MUSICD_SCAN_H
 
-#include "track.h"
+/**
+ * Starts scanning thread or does nothing if already active.
+ * @returns 0 if already running or successfully started, nonzero on failure.
+ */
+int scan_start();
 
-int cue_read(const char *path);
+void scan_stop();
+
 
 #endif

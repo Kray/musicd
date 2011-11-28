@@ -93,7 +93,7 @@ static int read_string(const char *src, char *dst)
  * @todo FIXME Multiple files in same cue sheet
  * @todo FIXME Major cleanup - full rewrite probably not necessary.
  */
-void cue_read(const char* path)
+int cue_read(const char* path)
 {
   FILE *file;
   char base_path[strlen(path)];
@@ -115,7 +115,7 @@ void cue_read(const char* path)
   base_path[i] = '\0';
   
   if (stat(path, &status)) {
-    return;
+    return -1;
   }
   
   /* Modification timestamp of the cue sheet file. */
@@ -128,7 +128,7 @@ void cue_read(const char* path)
   file = fopen(path, "r");
   if (!file) {
     musicd_log(LOG_ERROR, "cue", "Could not open file %s", path);
-    return;
+    return -1;
   }
   
   /* Check for BOM */
@@ -281,4 +281,5 @@ void cue_read(const char* path)
   
   fclose(file);
   
+  return 0;
 }

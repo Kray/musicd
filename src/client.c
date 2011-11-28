@@ -190,11 +190,11 @@ static int msg_search(client_t *client, char *p)
     musicd_log(LOG_ERROR, "main", "No query.");
   }
   
-  while (!library_search_next(query, &track)) {
+  while (!library_query_next(query, &track)) {
     client_send_track(client, &track);
   }
   
-  library_search_close(query);
+  library_query_close(query);
   
   free(needle);
   
