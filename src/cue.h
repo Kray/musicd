@@ -20,6 +20,8 @@
 
 #include "track.h"
 
-int cue_read(const char *path);
+#include <stdbool.h>
+
+bool cue_read(const char *path, int64_t directory);
 
 #endif

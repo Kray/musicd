@@ -185,7 +185,7 @@ static int msg_search(client_t *client, char *p)
   
   free(search);
   
-  query = library_search(needle);
+  query = library_search(LIBRARY_TABLE_TRACKS, LIBRARY_FIELD_NONE, needle);
   if (!query) {
     musicd_log(LOG_ERROR, "main", "No query.");
   }

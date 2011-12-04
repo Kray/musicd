@@ -33,7 +33,7 @@
 #include <sys/stat.h>
 #include <pthread.h>
 
-static volatile bool thread_running = false;
+static bool thread_running = false;
 static pthread_t thread;
 
 static time_t last_scan = 0;
@@ -64,56 +64,63 @@ static void scan_signal_handler()
   interrupted = 1;
 }
 
-/**
- * Stats an url - if can't stat or not regular file, remove the url and
- * associated tracks.
- * @todo FIXME Also handle possible erased artists, albums, and so on.
- */
-static bool check_url(const char *url)
-{
-  struct stat status;
 
-  if (interrupted) {
-    return false;
-  }
-  
-  if (!url) {
-    /* What? This shouldn't happen. Clear the url anyway. */
-    musicd_log(LOG_WARNING, "scan",
-                "Empty url in database. This is probably caused by a bug.");
-  } else {
-    if (!stat(url, &status)) {
-      if (S_ISREG(status.st_mode)) {
-        /* Regular file. Nothing to see here. */
-        return true;
-      }
+static void scan_directory(const char *dirpath, int parent);
+
+
+static int64_t scan_file(const char *path, int64_t directory)
+{
+  const char *extension;
+  int64_t url = 0;
+  track_t *track;
+
+  for (extension = path + strlen(path);
+    *(extension) != '.' && extension != path; --extension) { }
+  ++extension;
+    
+  if (!strcasecmp(extension, "jpg")
+    || !strcasecmp(extension, "png")
+    || !strcasecmp(extension, "gif")
+  ) {
+    /* image */
+  } else if (!strcasecmp(extension, "cue")) {
+    if (cue_read(path, directory)) {
+      url = library_url(path, directory);
     }
-  }
-  
-  /* We didn't get url, file can't be statted or it isn't a regular file.
-   * Get rid of it and tracks associated with it. */
-  musicd_log(LOG_DEBUG, "scan", "Remove entries for removed url '%s'",
-              url);
-  library_clear_url(url);
-  library_delete_url(url);
-  
-  return true;
+  } else {
+    musicd_log(LOG_DEBUG, "scan", "File: %s %s", extension, path);
+    track = track_from_path(path);
+    if (track) {
+      url = library_url(path, directory);
+      if (url <= 0) {
+        musicd_log(LOG_ERROR, "scan", "Could not create url into database?");
+      } else {
+        library_track_add(track, url);
+      }
+      track_free(track);
+    }
+  } 
+  return url;
 }
 
-static void
-iterate_dir(const char *path,
-            void (*callback)(const char *path, const char *ext))
+/**
+ * Iterates through directory. Subdirectories will be scanned using
+ * scan_directory.
+ */
+static void iterate_directory(const char *dirpath, int dir_id)
 {
+  struct stat status;
   DIR *dir;
   struct dirent *entry;
-  struct stat status;
-  char *extension;
+  
+  int64_t url;
+  time_t url_mtime;
   
   /* + 256 4-bit UTF-8 characters + / and \0 
    * More than enough on every platform really in use. */
-  char filepath[strlen(path) + 1024 + 2];
+  char *path = malloc(strlen(dirpath) + 1024 + 2);
   
-  if (!(dir = opendir(path))) {
+  if (!(dir = opendir(dirpath))) {
     /* Probably no read access - ok, we just omit. */
     musicd_perror(LOG_WARNING, "scan", "Could not open directory %s", path);
     return;
@@ -122,7 +129,7 @@ iterate_dir(const char *path,
   errno = 0;
   while ((entry = readdir(dir))) {
     if (interrupted) {
-      return;
+      break;
     }
     
     /* Omit hidden files and most importantly . and .. */
@@ -130,37 +137,33 @@ iterate_dir(const char *path,
       goto next;
     }
     
-    sprintf(filepath, "%s/%s", path, entry->d_name);
-    extension = entry->d_name + strlen(entry->d_name) - 3;
-   
+    sprintf(path, "%s/%s", dirpath, entry->d_name);
 
-    /* Stat only if file type is not available or this is a symbolic link, as
-     * there is no need to resolve anything with stat otherwise. */
-    if (entry->d_type == 0 || entry->d_type == DT_LNK) {
-      if (stat(filepath, &status)) {
-        goto next;
-      }
+    if (stat(path, &status)) {
+      goto next;
+    }
       
-      if (S_ISDIR(status.st_mode)) {
-        iterate_dir(filepath, callback);
-        
-      } else if (S_ISREG(status.st_mode)) {
-        callback(filepath, extension);
-      }
-    } else {
-    
-      if (entry->d_type == DT_DIR) {
-        iterate_dir(filepath, callback);
-        goto next;
-      }
-      
-      if (entry->d_type != DT_REG) {
-        goto next;
-      }
-      
-      callback(filepath, extension);
+    if (S_ISDIR(status.st_mode)) {
+      scan_directory(path, dir_id);
+      goto next;
+    }
+    if (!S_ISREG(status.st_mode)) {
+      goto next;
     }
     
+    url = library_url(path, 0);
+    if (url > 0) {
+      url_mtime = library_url_mtime(url);
+      if (url_mtime == status.st_mtime) {
+        goto next;
+      }
+    }
+    
+    url = scan_file(path, dir_id);
+    if (url) {
+      library_url_mtime_set(url, status.st_mtime);
+    }
+
   next:
     errno = 0;
   }
@@ -176,57 +179,90 @@ iterate_dir(const char *path,
 }
 
 
-static void scan_cue_cb(const char *path, const char *ext)
-{  
-  if (strcasecmp(ext, "cue")) {
-    return;
-  }
-  
-  cue_read(path);  
-}
-
-static void scan_files_cb(const char *path, const char *ext)
+static bool scan_urls_cb(library_url_t *url)
 {
-  track_t *track;
   struct stat status;
   
-  if (!strcasecmp(ext, "cue")
-   || !strcasecmp(ext, "jpg")
-   || !strcasecmp(ext, "png")
-   || !strcasecmp(ext, "gif")
-  ) {
-    return;
-  }
-
-  if (stat(path, &status)) {
-    return;
+  if (stat(url->path, &status)) {
+    musicd_perror(LOG_DEBUG, "scan", "Removing url %s",
+                  url->path);
+    library_url_delete(url->id);
+    return true;
   }
   
-  if (library_get_url_mtime(path) >= status.st_mtime) {
-    return;
+  if (url->mtime == status.st_mtime) {
+    return true;
   }
   
-  library_clear_url(path);
-  
-  musicd_log(LOG_DEBUG, "library", "scan %s", path);
-  
-  musicd_log(LOG_DEBUG, "library", "%i", av_guess_format(NULL, path, NULL));
-  
-  track = track_from_url(path);
-  if (!track) {
-    return;
+  library_url_clear(url->id);
+  if (scan_file(url->path, url->directory)) {
+    library_url_mtime_set(url->id, status.st_mtime);
+  } else {
+    library_url_delete(url->id);
   }
-
-  library_set_url_mtime(path, status.st_mtime);
-
-  library_add(track);
-  track_free(track);
+  
+  return true;
 }
 
-static void scan_dir(const char *path)
+
+static bool scan_directory_cb(library_directory_t *directory)
 {
-  iterate_dir(path, scan_cue_cb);
-  iterate_dir(path, scan_files_cb);
+  struct stat status;
+  
+  if (stat(directory->path, &status)) {
+    musicd_perror(LOG_WARNING, "scan", "Could not stat directory %s",
+                  directory->path);
+    return true;
+  }
+
+  if (interrupted) {
+    return false;
+  }
+  
+  if (directory->mtime == status.st_mtime) {
+    library_iterate_directories(directory->id, scan_directory_cb);
+    return true;
+  }
+  
+  library_iterate_urls_by_directory(directory->id, scan_urls_cb);
+  iterate_directory(directory->path, directory->id);
+  
+  if (interrupted) {
+    return false;
+  }
+
+  library_directory_mtime_set(directory->id, status.st_mtime);
+  
+  return true;
+}
+
+static void scan_directory(const char *dirpath, int parent)
+{
+  int dir_id;
+  time_t dir_mtime;
+  struct stat status;
+  
+  if (stat(dirpath, &status)) {
+    musicd_perror(LOG_WARNING, "scan", "Could not stat directory %s", dirpath);
+    return;
+  }
+  
+  dir_id = library_directory(dirpath, parent);
+  dir_mtime = library_directory_mtime(dir_id);
+  
+  if (dir_mtime == status.st_mtime) {
+    library_iterate_directories(dir_id, scan_directory_cb);
+    return;
+  }
+  
+  library_iterate_urls_by_directory(dir_id, scan_urls_cb);
+  iterate_directory(dirpath, dir_id);
+  
+  if (interrupted) {
+    return;
+  }
+  
+  library_directory_mtime_set(dir_id, status.st_mtime);
 }
 
 static void scan() {
@@ -246,26 +282,26 @@ static void scan() {
     path[strlen(path) - 1] = '\0';
   }
   
+  
   last_scan = db_meta_get_int("last-scan");
   now = time(NULL);
   
-  musicd_log(LOG_INFO, "scan", "Start scan.");
+  musicd_log(LOG_INFO, "scan", "Starting scanning.");
   
   signal(SIGINT, scan_signal_handler);
   
-  library_iterate_urls(check_url);
-  scan_dir(path);
+  scan_directory(path, 0);
+  
+  free(path);
   
   signal(SIGINT, NULL);
   
   if (interrupted) {  
-    musicd_log(LOG_INFO, "scan", "Scan interrupted.");
+    musicd_log(LOG_INFO, "scan", "Scanning interrupted.");
     return;
   }
   
-  musicd_log(LOG_INFO, "scan", "Scan finished.");
-  
-  free(path);
+  musicd_log(LOG_INFO, "scan", "Scanning finished.");
   
   db_meta_set_int("last-scan", now);
 }

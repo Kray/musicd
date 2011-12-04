@@ -23,7 +23,7 @@
 typedef struct track {
   int id;
   
-  char *url;
+  char *path;
   
   int track;
   char *title;
@@ -40,7 +40,7 @@ typedef struct track {
 
 track_t *track_new();
 
-track_t *track_from_url(const char *url);
+track_t *track_from_path(const char *path);
 
 void track_free(track_t *track);
 

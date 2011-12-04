@@ -25,7 +25,83 @@
 
 int library_open();
 
-int library_add(track_t *track);
+int64_t library_track_add(track_t *track, int64_t url);
+
+/*
+int library_add_image(const char *url);
+int library_image_id_by_url(const char *url);
+void library_set_image_by_directory(int image, const char *directory);
+*/
+
+
+/**
+ * Returns id of url located by @p path. If it does not exist in the database,
+ * it can be created depending on @p directory.
+ * @param path  Url path.
+ * @param directory Id of directory the url exists in. If > 0, a new url entry
+ * will be created to the database if not found.
+ * @returns Url id or 0 if not existing and @p directory <= 0. On error < 0.
+ */
+int64_t library_url(const char *path, int64_t directory);
+
+void library_url_clear(int64_t url);
+void library_url_delete(int64_t url);
+
+/**
+ * @Returns mtime of @p url
+ */
+time_t library_url_mtime(int64_t url);
+/**
+ * Sets mtime of @p url to @p mtime.
+ */
+void library_url_mtime_set(int64_t url, time_t mtime);
+
+typedef struct {
+  int64_t id;
+  const char *path;
+  time_t mtime;
+  int64_t directory;
+} library_url_t;
+
+/**
+ * Iterate through urls with directory @p directory. Stops when @p callback
+ * returns false.
+ */
+void library_iterate_urls_by_directory
+  (int64_t directory, bool (*callback)(library_url_t *url));
+
+/**
+ * Returns id of directory located by @p path. If it does not exist in the
+ * database, it can be created depending on @p parent.
+ * @param path Directory path.
+ * @param parent Id of parent directory. If >= 0, a new directory entry will be
+ * created to the database if not found.
+ * @returns Directory id or 0 if not existing and @p parent < 0. On error < 0.
+ */
+int64_t library_directory(const char *path, int64_t parent);
+/**
+ * @Returns mtime of @p directory.
+ */
+time_t library_directory_mtime(int64_t directory);
+/**
+ * Sets mtime of @p directory to @p mtime.
+ */
+void library_directory_mtime_set(int64_t directory, time_t mtime);
+
+typedef struct {
+  int64_t id;
+  const char *path;
+  time_t mtime;
+  int64_t parent;
+} library_directory_t;
+
+/**
+ * Iterate through directories with parent @p parent. Stops when @p callback
+ * returns false.
+ */
+void library_iterate_directories
+  (int64_t parent, bool (*callback)(library_directory_t *directory));
+
 
 
 /**
@@ -42,61 +118,44 @@ void library_delete_url(const char *url);
  */
 void library_iterate_urls(bool (*callback)(const char *url));
 
-#if 0
+
+typedef struct library_query library_query_t;
+
+typedef enum {
+  LIBRARY_TABLE_NONE,
+  LIBRARY_TABLE_TRACKS,
+  LIBRARY_TABLE_ARTISTS,
+  LIBRARY_TABLE_ALBUMS,
+} library_table_t;
+
 typedef enum {
   LIBRARY_FIELD_NONE,
-  LIBRARY_FIELD_ALBUMARTIST,
+  LIBRARY_FIELD_URL,
+  LIBRARY_FIELD_TITLE,
   LIBRARY_FIELD_ARTIST,
   LIBRARY_FIELD_ALBUM,
-  LIBRARY_FIELD_TRACK,
+  LIBRARY_FIELD_ALL
 } library_field_t;
 
-typedef struct {
-  library_field_t type;
-  int value;
-} library_group_t;
-
-
-typedef struct {
-  library_field_t type;
-  
-  const char *name;
-} library_entry_t;
-
-typedef struct {
-  library_field_t field;
-  char *filter;
-  
-  void *internal; /**< Internal field used by library. */
-} library_filter_t;
-
-
-typedef struct library_list_t library_list_t;
-
 /**
- * Starts a query with results being grouped by list in @p grouping. All
- * results will match @p filters, and at least one component in all results
- * will match @p search.
- * @param grouping Grouping for results, terminated by _NONE.
- * @param filters Field filters, terminated by type _NONE. May be NULL.
- * @param search Search spanning all fields. May be NULL.
+ * Starts a query from the library.
+ * @param table Table to be queried.
+ * @param field Field in the table to be searched from. NONE means no
+ * filtering, ALL search from all fields. Note that obviously all fields are
+ * not available in all tables.
+ * @param search Search string. If NULL, no filtering will be done. 
+ * @todo FIXME New search API not ready yet.
  */
-library_list_t *library_list(library_group_t *grouping, library_filter_t *filters, const char *search);
+library_query_t *library_search(library_table_t table, library_field_t field,
+                                const char *search);
 
-int library_list_next(library_list_t *list, library_entry_t *entry);
-#endif
+/*library_query_t *library_search(const char *search);*/
 
-typedef struct library_query_t library_query_t;
-
-
-library_query_t *library_search(const char *search);
 int library_query_next(library_query_t *query, track_t *track);
 void library_query_close(library_query_t *query);
 
-track_t *library_track_by_id(int id);
 
 
-time_t library_get_url_mtime(const char *url);
-void library_set_url_mtime(const char *url, time_t mtime);
+track_t *library_track_by_id(int64_t id);
 
 #endif

@@ -42,7 +42,7 @@ track_t *track_new()
   return result;
 }
 
-track_t *track_from_url(const char *url)
+track_t *track_from_path(const char *path)
 {
   AVFormatContext* avctx = NULL;
   track_t *track;
@@ -52,7 +52,7 @@ track_t *track_from_url(const char *url)
    * @todo TODO Own probing for ensuring probing score high enough to be sure
    * about file really being an audio file. */
   
-  if (avformat_open_input(&avctx, url, NULL, NULL)) {
+  if (avformat_open_input(&avctx, path, NULL, NULL)) {
     return NULL;
   }
   
@@ -79,7 +79,7 @@ track_t *track_from_url(const char *url)
   
   track = track_new();
   
-  track->url = strdup(url);
+  track->path = strdup(path);
   
   tmp = get_av_dict_value(avctx->metadata, "track");
   if (!tmp) {
@@ -117,10 +117,10 @@ track_t *track_from_url(const char *url)
       avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
   }
   
-  musicd_log(LOG_DEBUG, "track",
+  /*musicd_log(LOG_DEBUG, "track",
     "track=%i title=%s artist=%s albumartist=%s albumartist=%s duration=%i",
     track->track, track->title, track->artist, track->album,
-    track->albumartist, track->duration);
+    track->albumartist, track->duration);*/
   
   av_close_input_file(avctx);
   return track;
@@ -132,7 +132,7 @@ void track_free(track_t *track)
     return;
   }
   
-  free(track->url);
+  free(track->path);
   free(track->title);
   free(track->artist);
   free(track->album);

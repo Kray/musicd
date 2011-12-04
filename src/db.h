@@ -18,6 +18,8 @@
 #ifndef MUSICD_DB_H
 #define MUSICD_DB_H
 
+#include <stdint.h>
+
 int db_open(const char *file);
 void db_close();
 

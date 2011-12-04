@@ -89,6 +89,7 @@ void db_simple_exec(const char *sql, int *error)
   }
 }
 
+
 int db_meta_get_int(const char* key)
 {
   sqlite3_stmt *stmt;
@@ -137,7 +138,6 @@ void db_meta_set_int(const char* key, int value)
 static int create_schema()
 {
   int error = 0;
-  sqlite3_stmt *stmt;
   int schema;
 
   db_simple_exec("CREATE TABLE IF NOT EXISTS musicd (key TEXT UNIQUE, value TEXT)", &error);
@@ -146,40 +146,33 @@ static int create_schema()
     return -1;
   }
   
-  if (sqlite3_prepare_v2(db, "SELECT value FROM musicd WHERE key = 'schema'",
-                         -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "db", "Could not get schema: %s", db_error());
+  schema = db_meta_get_int("schema");
+  
+  musicd_log(LOG_DEBUG, "db", "Schema: %i", schema);
+
+  if (schema < 1) {
+    musicd_log(LOG_INFO, "db", "New database or pre-0.2 schema.");
+    
+    db_simple_exec("DROP TABLE IF EXISTS urls", &error);
+    db_simple_exec("DROP TABLE IF EXISTS artists", &error);
+    db_simple_exec("DROP TABLE IF EXISTS albums", &error);
+    db_simple_exec("DROP TABLE IF EXISTS tracks", &error);
+    
+    db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parent INT64)", &error);
+    db_simple_exec("CREATE TABLE urls (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
+    db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
+    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT)", &error);
+    db_simple_exec("CREATE TABLE tracks (url INT, track INT, title TEXT, artist INT, album INT, start INT, duration INT)", &error);
+  }
+  
+  if (error) {
+    musicd_log(LOG_ERROR, "db", "Could not create database tables.");
     return -1;
   }
   
-  schema = db_meta_get_int("schema");
-  
-  sqlite3_finalize(stmt);
-  
-  musicd_log(LOG_DEBUG, "db", "Schema: %i", schema);
-  
-  if (schema < 1) {
-    musicd_log(LOG_DEBUG, "db", "Schema to v1");
-    
-    db_simple_exec("CREATE TABLE IF NOT EXISTS urls (url TEXT UNIQUE, mtime INT64)", &error);
-    db_simple_exec("CREATE TABLE IF NOT EXISTS artists (name TEXT UNIQUE)", &error);
-    db_simple_exec("CREATE TABLE IF NOT EXISTS albums (name TEXT UNIQUE, artist INT)", &error);
-    db_simple_exec("CREATE TABLE IF NOT EXISTS tracks (url INT, track INT, title TEXT, artist INT, album INT, start INT, duration INT)", &error);
-    
-    db_simple_exec("INSERT INTO musicd VALUES ('schema', 1)", &error);
-    
-    if (error) {
-      musicd_log(LOG_ERROR, "db", "Could not create database tables.");
-      return -1;
-    }
-  }
-  
-  if (schema < 2) {
-    musicd_log(LOG_DEBUG, "db", "Schema to v2"); 
-  }
-  
   db_meta_set_int("schema", 1);
-
+  
+  
   if (error) {
     musicd_log(LOG_ERROR, "db", "Could not create schema.");
     return -1;
@@ -187,3 +180,4 @@ static int create_schema()
   
   return 0;
 }
+

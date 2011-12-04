@@ -25,8 +25,8 @@ stream_t *stream_open(track_t *track)
   stream_t *stream;
   AVCodec *codec;
   
-  if (avformat_open_input(&avctx, track->url, NULL, NULL)) {
-    musicd_log(LOG_ERROR, "stream", "Could not open file '%s'", track->url);
+  if (avformat_open_input(&avctx, track->path, NULL, NULL)) {
+    musicd_log(LOG_ERROR, "stream", "Could not open file '%s'", track->path);
     return NULL;
   }
   

@@ -93,57 +93,68 @@ static int read_string(const char *src, char *dst)
  * @todo FIXME Multiple files in same cue sheet
  * @todo FIXME Major cleanup - full rewrite probably not necessary.
  */
-int cue_read(const char* path)
+bool cue_read(const char *cuepath, int64_t directory)
 {
+  bool result = true;
+  
   FILE *file;
-  char base_path[strlen(path)];
-  time_t mtime, cue_mtime;
-  struct stat status;
-  char line[1024], instr[16], string1[512], *ptr;
-  char url[strlen(path) + 1024 + 2], cueurl[strlen(path) + 1024 + 2];
+  char *directory_path, *path, *path2;
+  
+  bool header_read = false;
+  
   char album[512], albumartist[512];
-  int i, header_read = 0;
+  char line[1024], instr[16], string1[512], *ptr;
+  
+  int64_t track_url;
+  
+  struct stat status;
+  
+  //char url[strlen(path) + 1024 + 2], cueurl[strlen(path) + 1024 + 2];
+  
+  int i;
+  
   int index, mins, secs, frames;
   /* Track is stored in prev_track until index of the following track is known.
    * This is mandatory for figuring out the track's duration. Last track's
    * duration is calculated from file's total duration. */
   track_t *prev_track = NULL, *track = NULL, *file_track = NULL;
   
-  /* Extract base path. */
-  for (i = strlen(path) - 1; i > 0 && path[i] != '/'; --i) { }
-  strncpy(base_path, path, i);
-  base_path[i] = '\0';
-  
-  if (stat(path, &status)) {
-    return -1;
+  file = fopen(cuepath, "r");
+  if (!file) {
+    musicd_perror(LOG_ERROR, "cue", "Could not open file %s", cuepath);
+    return false;
   }
   
-  /* Modification timestamp of the cue sheet file. */
-  cue_mtime = status.st_mtime;
+  directory_path = malloc(strlen(cuepath));
   
-  url[0] = '\0';
+  /* Extract directory path. */
+  for (i = strlen(cuepath) - 1; i > 0 && cuepath[i] != '/'; --i) { }
+  strncpy(directory_path, cuepath, i);
+  directory_path[i] = '\0';
+  
+  /* Directory + 256 4-byte UTF-8 characters + '/' + '\0', more than needed. */
+  path = malloc(strlen(directory_path) + 1024 + 2);
+  path2 = malloc(strlen(directory_path) + 1024 + 2);
+  
   album[0] = '\0';
   albumartist[0] = '\0';
   
-  file = fopen(path, "r");
-  if (!file) {
-    musicd_log(LOG_ERROR, "cue", "Could not open file %s", path);
-    return -1;
-  }
-  
-  /* Check for BOM */
+  /* Check for BOM, seek back if not found. */
   fread(line, 1, 3, file);
-  if (line[0] == (char)0xef && line[1] == (char)0xbb && line[2] == (char)0xbf) {
-    /*musicd_log(LOG_DEBUG, "cue", "BOM detected.");*/
-  } else {
+  if (line[0] != (char)0xef
+   || line[1] != (char)0xbb
+   || line[2] != (char)0xbf) {
     fseek(file, 0, SEEK_SET);
   }
 
   while (read_line(file, line, sizeof(line))) {
+    /* Read instruction, up to 15 characters. */
     if (sscanf(line, "%15s", instr) < 1) {
       continue;
     }
     
+    
+    /* Skip comments. */
     if (!strcmp(instr, "REM")) {
       continue;
     }
@@ -161,71 +172,71 @@ int cue_read(const char* path)
         free(track->artist);
         track->artist = strdup(string1);
       }
-    }
-    if (!strcmp(instr, "TITLE")) {
-      /*musicd_log(LOG_DEBUG, "cue", "name: %s", string1);*/
+    } else if (!strcmp(instr, "TITLE")) {
+      /*musicd_log(LOG_DEBUG, "cue", "title: %s", string1);*/
       if (!header_read) {
         strcpy(album, string1);
       } else if (track) {
         free(track->title);
         track->title = strdup(string1);
       }
-    }
-    if (!strcmp(instr, "FILE")) {
+    } else if (!strcmp(instr, "FILE")) {
       if (file_track) {
-        musicd_log(LOG_WARNING, "cue", "Multiple FILEs in a single cue sheet "
-                                       "is currently unsupported. Sorry.");
+        musicd_log(LOG_WARNING, "cue", "Multiple FILEs in a single cue sheet"
+                                       "(%s) is currently unsupported. Sorry",
+                                        cuepath);
         break;
       }
       
-      header_read = 1;
+      header_read = true;
       
-      sprintf(url, "%s/%s", base_path, string1);
+      sprintf(path, "%s/%s", directory_path, string1);
       
-      if (stat(url, &status)) {
+      if (stat(path, &status)) {
+        result = false;
         break;
       }
-      
-      mtime = library_get_url_mtime(url);
-      
-      if (cue_mtime <= mtime && status.st_mtime <= mtime) {
-        /* Neither cue sheet nor the file itself has newer timestamp, skip. */
-        break;
-      }
-      
-      musicd_log(LOG_DEBUG, "cue", "cue sheet: %s", path);
-      
-      /* Set the highest corresponding timestamp in database. This way the url
-       * won't be rescanned when looking for ordinary track files.
-       */
-      library_set_url_mtime(url, cue_mtime > status.st_mtime ?
-                                 cue_mtime : status.st_mtime);
       
       /* Prioritizing: if there are multiple cue sheets and a cue sheet with
        * same base name as the track file exists, it is used for the track.
        * otherwise, sheet with highest mtime will result to be selected.
        */
-      for (i = strlen(url) - 1; i > 0 && url[i] != '.'; --i) { }
-      strncpy(cueurl, url, i);
-      strcpy(cueurl + i, ".cue");
+      for (i = strlen(path) - 1; i > 0 && path[i] != '.'; --i) { }
+      strncpy(path2, path, i);
+      strcpy(path2 + i, ".cue");
       
-      if (strcmp(path, cueurl) && stat(cueurl, &status) == 0) {
+      if (strcmp(path2, cuepath) && stat(path2, &status) == 0) {
         musicd_log(LOG_DEBUG, "cue",
-                   "Multiple cue sheets for '%s', selecting '%s'",
-                   url, cueurl);
-        cue_read(cueurl);
-        break;
+                   "Multiple cue sheets for '%s', trying '%s'",
+                   path, path2);
+        if (cue_read(path2, directory)) {
+          break;
+        }
       }
       
-      file_track = track_from_url(url);
+      file_track = track_from_path(path);
       if (!file_track) {
         break;
       }
       
-      library_clear_url(url);
-     
+      track_url = library_url(path, 0);
+      if (track_url > 0) {
+        /* Url already exists, clear associated tracks. */
+        library_url_clear(track_url);
+      } else {
+        track_url = library_url(path, directory);
+        if (track_url <= 0) {
+          /* Some error... */
+          break;
+        }
+      }
+      
+      library_url_mtime_set(track_url, status.st_mtime);
+      
+      musicd_log(LOG_DEBUG, "cue", "cue sheet: %s", path);
       continue;
     }
+    
     
     if (!file_track) {
       continue;
@@ -239,14 +250,14 @@ int cue_read(const char* path)
           prev_track = track;
         } else {
           prev_track->duration = track->start - prev_track->start;
-          library_add(prev_track);
+          library_track_add(prev_track, track_url);
           track_free(prev_track);
           prev_track = track;
         }
       }
       
       track = track_new();
-      track->url = strdup(url);
+      track->path = strdup(path);
       track->track = index;
       /* Set artist same as the album artist and replace if track spefific
        * artist is later defined. */
@@ -268,12 +279,12 @@ int cue_read(const char* path)
   
   if (prev_track) {
     prev_track->duration = track->start - prev_track->start;
-    library_add(prev_track);
+    library_track_add(prev_track, track_url);
     track_free(prev_track);
   }
   if (track) {
     track->duration = file_track->duration - track->start;
-    library_add(track);
+    library_track_add(track, track_url);
     track_free(track);
   }
   
@@ -281,5 +292,10 @@ int cue_read(const char* path)
   
   fclose(file);
   
-  return 0;
+  free(directory_path);
+  
+  free(path);
+  free(path2);
+  
+  return result;
 }
