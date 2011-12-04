@@ -43,10 +43,14 @@ void library_set_image_by_directory(int image, const char *directory);
  * @returns Url id or 0 if not existing and @p directory <= 0. On error < 0.
  */
 int64_t library_url(const char *path, int64_t directory);
-
+/**
+ * Removes all tracks associated with @p url from the database.
+ */
 void library_url_clear(int64_t url);
+/**
+ * Calls library_url_clear and removes the @p url entry from database.
+ */
 void library_url_delete(int64_t url);
-
 /**
  * @Returns mtime of @p url
  */
@@ -62,7 +66,6 @@ typedef struct {
   time_t mtime;
   int64_t directory;
 } library_url_t;
-
 /**
  * Iterate through urls with directory @p directory. Stops when @p callback
  * returns false.
@@ -70,6 +73,7 @@ typedef struct {
 void library_iterate_urls_by_directory
   (int64_t directory, bool (*callback)(library_url_t *url));
 
+  
 /**
  * Returns id of directory located by @p path. If it does not exist in the
  * database, it can be created depending on @p parent.
@@ -79,6 +83,12 @@ void library_iterate_urls_by_directory
  * @returns Directory id or 0 if not existing and @p parent < 0. On error < 0.
  */
 int64_t library_directory(const char *path, int64_t parent);
+/**
+ * Recursively calls library_directory_delete for each directory with parent
+ * @p directory in database and library_url_delete for each url with directory
+ * @p directory.
+ */
+void library_directory_delete(int64_t directory);
 /**
  * @Returns mtime of @p directory.
  */
@@ -103,20 +113,6 @@ void library_iterate_directories
   (int64_t parent, bool (*callback)(library_directory_t *directory));
 
 
-
-/**
- * If tracks with such url exist, delete them.
- */
-void library_clear_url(const char *url);
-/**
- * Deletes @p url entry and its associated tracks completely.
- */
-void library_delete_url(const char *url);
-/**
- * Iterates through all urls in database, calling @p callback for each.
- * Stops when callback returns false or all urls have been iterated.
- */
-void library_iterate_urls(bool (*callback)(const char *url));
 
 
 typedef struct library_query library_query_t;

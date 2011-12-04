@@ -304,6 +304,31 @@ int64_t library_directory(const char* path, int64_t parent)
 
   return result ? result : sqlite3_last_insert_rowid(db_handle());
 }
+static bool delete_urls_cb(library_url_t *url)
+{
+  library_url_delete(url->id);
+  return true;
+}
+static bool delete_directories_cb(library_directory_t *directory)
+{
+  library_directory_delete(directory->id);
+  return true;
+}
+void library_directory_delete(int64_t directory)
+{
+  static const char *sql = "DELETE FROM directories WHERE rowid = ?";
+  sqlite3_stmt *query;
+  
+  library_iterate_urls_by_directory(directory, delete_urls_cb);
+  library_iterate_directories(directory, delete_directories_cb);
+  
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+  
+  sqlite3_bind_int64(query, 1, directory);
+  execute(query);
+}
 time_t library_directory_mtime(int64_t directory)
 {
   static const char *sql = "SELECT mtime FROM directories WHERE rowid = ?";

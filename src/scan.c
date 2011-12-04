@@ -208,10 +208,10 @@ static bool scan_urls_cb(library_url_t *url)
 static bool scan_directory_cb(library_directory_t *directory)
 {
   struct stat status;
-  
   if (stat(directory->path, &status)) {
-    musicd_perror(LOG_WARNING, "scan", "Could not stat directory %s",
+    musicd_perror(LOG_DEBUG, "scan", "Removing directory %s",
                   directory->path);
+    library_directory_delete(directory->id);
     return true;
   }
 
@@ -219,8 +219,9 @@ static bool scan_directory_cb(library_directory_t *directory)
     return false;
   }
   
+  library_iterate_directories(directory->id, scan_directory_cb);
+  
   if (directory->mtime == status.st_mtime) {
-    library_iterate_directories(directory->id, scan_directory_cb);
     return true;
   }
   
@@ -242,17 +243,24 @@ static void scan_directory(const char *dirpath, int parent)
   time_t dir_mtime;
   struct stat status;
   
+  dir_id = library_directory(dirpath, -1);
+  
   if (stat(dirpath, &status)) {
     musicd_perror(LOG_WARNING, "scan", "Could not stat directory %s", dirpath);
+    if (dir_id) {
+      library_directory_delete(dir_id);
+    }
     return;
   }
   
-  dir_id = library_directory(dirpath, parent);
-  dir_mtime = library_directory_mtime(dir_id);
-  
-  if (dir_mtime == status.st_mtime) {
+  if (dir_id > 0) {
     library_iterate_directories(dir_id, scan_directory_cb);
-    return;
+    dir_mtime = library_directory_mtime(dir_id);
+    if (dir_mtime == status.st_mtime) {
+      return;
+    }
+  } else {
+    dir_id = library_directory(dirpath, parent);
   }
   
   library_iterate_urls_by_directory(dir_id, scan_urls_cb);
