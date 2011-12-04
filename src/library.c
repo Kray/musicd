@@ -125,7 +125,7 @@ static int64_t field_rowid_create(const char *table, const char *field, const ch
   }
   
   free(sql);
-  return result;
+  return sqlite3_last_insert_rowid(db_handle());
 }
 
 
