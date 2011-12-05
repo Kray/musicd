@@ -56,7 +56,7 @@ static int read_line(FILE *file, char *buf, int buf_size) {
  * Parses a quote-surrounded string and replaces escape codes \" and \\ .
  * @param src Source string
  * @param dst Destination buffer. Should be at least strlen(src) * 2 + 1
- * @returns String length
+ * @returns Bytes read
  */
 static int read_string(const char *src, char *dst)
 {
@@ -67,10 +67,7 @@ static int read_string(const char *src, char *dst)
     ++p;
   }
   
-  do {
-    if (p == '\0') {
-      break;
-    }
+  while (*p != '"' && p != '\0') {
     if (*p == '\\') {
       p++;
       if (*p == '"') {
@@ -82,9 +79,9 @@ static int read_string(const char *src, char *dst)
     } else {
       dst[pos++] = *p++;
     }
-  } while ((*p != '"' && p != '\0'));
+  } 
   
-  dst[pos++] = '\0';
+  dst[pos] = '\0';
   
   return p - src;
 }
