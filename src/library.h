@@ -27,12 +27,6 @@ int library_open();
 
 int64_t library_track_add(track_t *track, int64_t url);
 
-/*
-int library_add_image(const char *url);
-int library_image_id_by_url(const char *url);
-void library_set_image_by_directory(int image, const char *directory);
-*/
-
 
 /**
  * Returns id of url located by @p path. If it does not exist in the database,
@@ -73,7 +67,7 @@ typedef struct {
 void library_iterate_urls_by_directory
   (int64_t directory, bool (*callback)(library_url_t *url));
 
-  
+
 /**
  * Returns id of directory located by @p path. If it does not exist in the
  * database, it can be created depending on @p parent.
@@ -113,6 +107,28 @@ void library_iterate_directories
   (int64_t parent, bool (*callback)(library_directory_t *directory));
 
 
+int64_t library_image_add(int64_t url);
+
+typedef struct {
+  int64_t id;
+  const char *path;
+  int64_t directory;
+  int64_t album;
+} library_image_t;
+
+void library_iterate_images_by_directory
+  (int64_t directory, bool (*callback)(library_image_t *image));
+
+
+/**
+ * @Returns most common album of tracks in urls located in @p directory.
+ */
+int64_t library_album_by_directory(int64_t directory);
+
+/**
+ * Sets album to @p album of all images located in @p directory.
+ */
+void library_image_album_set_by_directory(int64_t directory, int64_t album);
 
 
 typedef struct library_query library_query_t;

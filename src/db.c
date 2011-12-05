@@ -161,8 +161,10 @@ static int create_schema()
     db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parent INT64)", &error);
     db_simple_exec("CREATE TABLE urls (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
     db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
-    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64)", &error);
-    db_simple_exec("CREATE TABLE tracks (url INT64, track INT, title TEXT, artist INT, album INT, start INT, duration INT)", &error);
+    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64, image INT64)", &error);
+    db_simple_exec("CREATE TABLE tracks (url INT64, track INT, title TEXT, artist INT64, album INT64, start INT, duration INT)", &error);
+    
+    db_simple_exec("CREATE TABLE images (url INT64, album INT64)", &error);
   }
   
   if (error) {

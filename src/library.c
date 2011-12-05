@@ -239,7 +239,7 @@ void library_iterate_urls_by_directory
       break;
     }
   }
-  if (cb_result == true && result != SQLITE_DONE) {
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
   }
   
@@ -248,15 +248,20 @@ void library_iterate_urls_by_directory
 
 void library_url_clear(int64_t url)
 {
-  static const char *sql = "DELETE FROM tracks WHERE url = ?";
+  static const char *sql_tracks = "DELETE FROM tracks WHERE url = ?";
+  static const char *sql_images = "DELETE FROM images WHERE url = ?";
   sqlite3_stmt *query;
   
-  if (!prepare_query(sql, &query)) {
+  if (!prepare_query(sql_tracks, &query)) {
     return;
   }
-
   sqlite3_bind_int64(query, 1, url);
+  execute(query);
   
+  if (!prepare_query(sql_images, &query)) {
+    return;
+  }
+  sqlite3_bind_int64(query, 1, url);
   execute(query);
 }
 
@@ -383,11 +388,99 @@ void library_iterate_directories
       break;
     }
   }
-  if (cb_result == true && result != SQLITE_DONE) {
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
   }
   
   sqlite3_finalize(query);
+}
+
+
+int64_t library_image_add(int64_t url)
+{
+  static const char *sql =
+    "INSERT INTO images (url) VALUES(?)";
+  
+  sqlite3_stmt *query;
+  
+  if (!prepare_query(sql, &query)) {
+    return -1;
+  }
+  
+  sqlite3_bind_int64(query, 1, url);
+  
+  if (!execute(query)) {
+    return -1;
+  }
+  
+  return sqlite3_last_insert_rowid(db_handle());
+}
+
+void library_iterate_images_by_directory
+  (int64_t directory, bool (*callback)(library_image_t *url))
+{
+  static const char *sql =
+    "select images.rowid AS id, urls.path AS path, images.album AS album FROM urls JOIN images ON images.url = urls.rowid WHERE urls.directory = ?;";
+  sqlite3_stmt *query;
+  int result;
+  library_image_t image;
+  bool cb_result = true;
+  
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+  
+  sqlite3_bind_int64(query, 1, directory);
+  
+  image.directory = directory;
+  
+  while ((result = sqlite3_step(query)) == SQLITE_ROW) {
+    image.id = sqlite3_column_int64(query, 0);
+    image.path = (const char*)sqlite3_column_text(query, 1);
+    image.album = sqlite3_column_int64(query, 2);
+    
+    cb_result = callback(&image);
+    if (cb_result == false) {
+      break;
+    }
+  }
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
+  }
+  
+  sqlite3_finalize(query);
+}
+
+
+int64_t library_album_by_directory(int64_t directory)
+{
+  static const char *sql =
+    "SELECT tracks.album FROM directories JOIN urls ON urls.directory = directories.rowid JOIN tracks ON tracks.url = urls.rowid WHERE directories.rowid = ? GROUP BY tracks.album ORDER BY COUNT(tracks.album) DESC LIMIT 1";
+  sqlite3_stmt *query;
+  
+  if (!prepare_query(sql, &query)) {
+    return -1;
+  }
+  
+  sqlite3_bind_int64(query, 1, directory);
+  
+  return execute_scalar(query);
+}
+
+void library_image_album_set_by_directory(int64_t directory, int64_t album)
+{
+  static const char *sql =
+    "UPDATE images SET album = ? WHERE url IN (SELECT rowid FROM urls WHERE directory = ?)";
+  sqlite3_stmt *query;
+  
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+  
+  sqlite3_bind_int64(query, 1, album);
+  sqlite3_bind_int64(query, 2, directory);
+  
+  execute(query);
 }
 
 

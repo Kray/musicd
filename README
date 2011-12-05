@@ -1,5 +1,5 @@
-musicd v0.1.0
-=============
+musicd v0.2.0-dev
+=================
 Author: Konsta Kokkinen <kray@tsundere.fi>
 Website: http://tsundere.fi/musicd
 
@@ -15,6 +15,7 @@ Requirements
   * C compiler (tested with gcc, tcc won't do because libav requires C99)
   * libav (also known as ffmpeg) new enough
   * libsqlite3
+  * FreeImage
 
 Copyright
 =========

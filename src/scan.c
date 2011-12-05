@@ -33,6 +33,9 @@
 #include <sys/stat.h>
 #include <pthread.h>
 
+#include <FreeImage.h>
+
+
 static bool thread_running = false;
 static pthread_t thread;
 
@@ -67,7 +70,6 @@ static void scan_signal_handler()
 
 static void scan_directory(const char *dirpath, int parent);
 
-
 static int64_t scan_file(const char *path, int64_t directory)
 {
   const char *extension;
@@ -78,25 +80,26 @@ static int64_t scan_file(const char *path, int64_t directory)
     *(extension) != '.' && extension != path; --extension) { }
   ++extension;
     
-  if (!strcasecmp(extension, "jpg")
-    || !strcasecmp(extension, "png")
-    || !strcasecmp(extension, "gif")
-  ) {
-    /* image */
-  } else if (!strcasecmp(extension, "cue")) {
+  if (!strcasecmp(extension, "cue")) {
+    /* CUE sheet */
     if (cue_read(path, directory)) {
+      musicd_log(LOG_DEBUG, "scan", "cue: %s", path);
       url = library_url(path, directory);
     }
+  } else if(FreeImage_GetFIFFromFilename(path) != FIF_UNKNOWN) {
+    /* Image file */
+    if (FreeImage_GetFileType(path, 0) != FIF_UNKNOWN) {
+      musicd_log(LOG_DEBUG, "scan", "image: %s", path);
+      url = library_url(path, directory);
+      library_image_add(url);
+    }
   } else {
-    musicd_log(LOG_DEBUG, "scan", "File: %s %s", extension, path);
+    /* Try track */
     track = track_from_path(path);
     if (track) {
+      musicd_log(LOG_DEBUG, "scan", "track: %s", path);
       url = library_url(path, directory);
-      if (url <= 0) {
-        musicd_log(LOG_ERROR, "scan", "Could not create url into database?");
-      } else {
-        library_track_add(track, url);
-      }
+      library_track_add(track, url);
       track_free(track);
     }
   } 
@@ -204,6 +207,16 @@ static bool scan_urls_cb(library_url_t *url)
   return true;
 }
 
+static void assign_images(int64_t directory)
+{
+  int64_t album;
+  album = library_album_by_directory(directory);
+  if (album <= 0) {
+    return;
+  }
+  
+  library_image_album_set_by_directory(directory, album);
+}
 
 static bool scan_directory_cb(library_directory_t *directory)
 {
@@ -227,6 +240,8 @@ static bool scan_directory_cb(library_directory_t *directory)
   
   library_iterate_urls_by_directory(directory->id, scan_urls_cb);
   iterate_directory(directory->path, directory->id);
+  
+  assign_images(directory->id);
   
   if (interrupted) {
     return false;
@@ -265,6 +280,8 @@ static void scan_directory(const char *dirpath, int parent)
   
   library_iterate_urls_by_directory(dir_id, scan_urls_cb);
   iterate_directory(dirpath, dir_id);
+  
+  assign_images(dir_id);
   
   if (interrupted) {
     return;

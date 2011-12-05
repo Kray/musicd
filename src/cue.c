@@ -230,7 +230,7 @@ bool cue_read(const char *cuepath, int64_t directory)
       
       library_url_mtime_set(track_url, status.st_mtime);
       
-      musicd_log(LOG_DEBUG, "cue", "cue sheet: %s", path);
+      musicd_log(LOG_DEBUG, "cue", "audio: %s", path);
       continue;
     }
     
