@@ -117,6 +117,11 @@ track_t *track_from_path(const char *path)
       avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
   }
   
+  if (track->duration <= 0) {
+    track_free(track);
+    track = NULL;
+  }
+  
   /*musicd_log(LOG_DEBUG, "track",
     "track=%i title=%s artist=%s albumartist=%s albumartist=%s duration=%i",
     track->track, track->title, track->artist, track->album,
