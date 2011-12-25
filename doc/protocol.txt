@@ -6,8 +6,8 @@ Version 1
 Initial release.
 
 
-Version 2 (Working draft)
-=========================
+Version 2
+=========
 
 * Additions to syntax:
   * List property:
