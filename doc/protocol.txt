@@ -7,7 +7,7 @@ Initial release.
 
 
 Version 2 (Working draft)
-========================
+=========================
 
 * Additions to syntax:
   * List property:
@@ -17,7 +17,8 @@ Version 2 (Working draft)
   * musicd
     + codecs list
       Defines what codecs the server is able to transcode to on client's
-      request. Transcoding support is optional.
+      request. Transcoding support is optional, absence of this field means it
+      is not supported.
   * open
     + Request: codec string
       Codec requested for server-side transcoding. Must be one reported by
@@ -26,5 +27,5 @@ Version 2 (Working draft)
     + Request: bitrate integer
       Bitrate requested for server-side transcoding. Server may or may not
       honor this.
-      
-
+  * track
+    + path string

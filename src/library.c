@@ -493,6 +493,7 @@ struct library_query {
 library_query_t *library_search
   (library_table_t table, library_field_t field, const char *search)
 {
+  (void) table; (void) field;
   sqlite3_stmt *result;
   
   static const char *q_track_all =

@@ -17,7 +17,7 @@ DEPS = $(SRCS)
 
 CFLAGS += -g -Wall -Wextra
 
-LIBS = -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage
+LIBS = -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage
 
 PREFIX ?= /usr/local
 

@@ -159,17 +159,8 @@ int main(int argc, char* argv[])
     musicd_log(LOG_WARNING, "main", "music-directory not set, scanning will "
                                     "be disabled.");
   } else {
-    /*library_scan(config_to_path("music-directory"));*/
     scan_start();
   }
-  
-  /*musicd_log(LOG_DEBUG, "main", "%i", library_directory("siikasf", 0));*/
-  
-  /*musicd_log(LOG_DEBUG, "main", "%i", library_url("sii23kasf", 8));*/
-  
-  /*library_query_t *query = library_search(LIBRARY_TABLE_TRACKS, LIBRARY_FIELD_ALBUM, "Noble Roar");
-  while (!library_query_next(query, NULL)) {
-  }*/
   
   while (1) {
     sleep(1);

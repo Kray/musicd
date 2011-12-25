@@ -67,6 +67,7 @@ Authenticates the user.
 track (server to client)
 
 id integer (required)
+path string
 track integer
 title string
 artist string

@@ -88,11 +88,12 @@ static int64_t scan_file(const char *path, int64_t directory)
     }
   } else if(FreeImage_GetFIFFromFilename(path) != FIF_UNKNOWN) {
     /* Image file */
-    if (FreeImage_GetFileType(path, 0) != FIF_UNKNOWN) {
+    
+    /*if (FreeImage_GetFileType(path, 0) != FIF_UNKNOWN) {*/
       musicd_log(LOG_DEBUG, "scan", "image: %s", path);
       url = library_url(path, directory);
       library_image_add(url);
-    }
+    /*}*/
   } else {
     /* Try track */
     track = track_from_path(path);
