@@ -1,5 +1,5 @@
-musicd protocol, version 2
-==========================
+musicd protocol, version 3 (Working draft)
+==========================================
 
 Messages are of following structure:
 
@@ -112,6 +112,10 @@ samplerate integer (required)
 bitspersample integer (required)
 channels integer (required)
 extradata bytes
+replaytrackgain floating
+replaytrackpeak floating
+replayalbumgain floating
+replayalbumpeak floating
 
 Opens a track for playing and closes any track already open. Triggers the
 server to push a track message describing the opened track. Starts pushing
@@ -119,7 +123,10 @@ messages of type packet. If codec is set, server-side transcoding is requested.
 The codec must be one reported by server when connecting. Absence of the codec
 field means no transcoding is requested. Bitrate defines bitrate requested for
 server-side transcoding. Server may or may not honor it.
-
+Reply may contain fields for replay gain information. The reference gain is
+89 dB. Fields replay*gain contain gain difference from the source audio to
+the reference level. Fields replay*peak contain highest digital sample value
+in scale from 0 to 1.
 
 
 seek (client to server)

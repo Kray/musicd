@@ -29,3 +29,14 @@ Version 2
       honor this.
   * track
     + path string
+
+
+Version 3 (Working draft)
+=========================
+
+* Changes to protocol:
+  * open
+    + Reply: replaytrackgain floating
+    + Reply: replaytrackpeak floating
+    + Reply: replayalbumgain floating
+    + Reply: replayalbumpeak floating

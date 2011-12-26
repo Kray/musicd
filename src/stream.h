@@ -39,6 +39,11 @@ typedef struct stream {
   
   int at_end;
   
+  double replay_track_gain;
+  double replay_album_gain;
+  double replay_track_peak;
+  double replay_album_peak;
+  
 } stream_t;
 
 stream_t *stream_open(track_t *track);

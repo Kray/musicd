@@ -19,6 +19,25 @@
 
 #include "log.h"
 
+static double dict_to_double(AVDictionary *dict, const char *key)
+{
+  AVDictionaryEntry *entry;
+  double result = 0.0;
+  entry = av_dict_get(dict, key, NULL, 0);
+  if (!entry) {
+    return 0.0;
+  }
+  sscanf(entry->value, "%lf", &result);
+  return result;
+}
+static void find_replay_gain(stream_t *stream, AVDictionary *dict)
+{
+  stream->replay_track_gain = dict_to_double(dict, "REPLAYGAIN_TRACK_GAIN");
+  stream->replay_album_gain = dict_to_double(dict, "REPLAYGAIN_ALBUM_GAIN");
+  stream->replay_track_peak = dict_to_double(dict, "REPLAYGAIN_TRACK_PEAK");
+  stream->replay_album_peak = dict_to_double(dict, "REPLAYGAIN_ALBUM_PEAK");
+}
+
 stream_t *stream_open(track_t *track)
 {
   AVFormatContext *avctx = NULL;
@@ -61,6 +80,15 @@ stream_t *stream_open(track_t *track)
   format_from_av(stream->avctx->streams[0]->codec, &stream->src_format);
   
   stream->format = &stream->src_format;
+  
+  /* Replay gain, test container metadata, then stream metadata. */
+  find_replay_gain(stream, avctx->metadata);
+  if (stream->replay_track_gain == 0.0 && stream->replay_track_gain == 0.0) {
+    find_replay_gain(stream, avctx->streams[0]->metadata);
+  }
+  musicd_log(LOG_DEBUG, "stream", "replaygain: %f %f %f %f",
+             stream->replay_track_gain, stream->replay_album_gain,
+             stream->replay_track_peak, stream->replay_album_peak);
   
   /* If track does not begin from the beginning of the file, seek to relative
    * zero. */

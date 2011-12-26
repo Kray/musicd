@@ -34,7 +34,7 @@ client_t *client_new(int fd)
   
   result->fd = fd;
   
-  client_send(result, "musicd\nprotocol=2\ncodecs=mp3\n\n");
+  client_send(result, "musicd\nprotocol=3\ncodecs=mp3\n\n");
   
   return result;
 }
@@ -76,7 +76,7 @@ void client_send_track(client_t *client, track_t* track)
   
   snprintf(line, 1024, "duration=%i\n", track->duration);
   client_send(client, line);
-
+  
   client_send(client, "\n");
 }
 
@@ -258,6 +258,25 @@ static int msg_open(client_t *client, char *p)
   client_send(client, line);
   snprintf(line, 1024, "channels=%i\n", client->stream->format->channels);
   client_send(client, line);
+  
+  /* Replay gain */
+  if (client->stream->replay_track_gain != 0.0) {
+    snprintf(line, 1024, "replaytrackgain=%f\n", client->stream->replay_track_gain);
+    client_send(client, line);
+  }
+  if (client->stream->replay_album_gain != 0.0) {
+    snprintf(line, 1024, "replayalbumgain=%f\n", client->stream->replay_album_gain);
+    client_send(client, line);
+  }
+  if (client->stream->replay_track_peak != 0.0) {
+    snprintf(line, 1024, "replaytrackpeak=%f\n", client->stream->replay_track_peak);
+    client_send(client, line);
+  }
+  if (client->stream->replay_album_peak != 0.0) {
+    snprintf(line, 1024, "replayalbumpeak=%f\n", client->stream->replay_album_peak);
+    client_send(client, line);
+  }
+  
   
   if (client->stream->format->extradata_size > 0) {
     sprintf(line, "extradata:=%i\n\n", client->stream->format->extradata_size);
