@@ -27,7 +27,6 @@ int library_open();
 
 int64_t library_track_add(track_t *track, int64_t url);
 
-
 /**
  * Returns id of url located by @p path. If it does not exist in the database,
  * it can be created depending on @p directory.
@@ -169,5 +168,7 @@ void library_query_close(library_query_t *query);
 
 
 track_t *library_track_by_id(int64_t id);
+
+int64_t library_randomid();
 
 #endif

@@ -615,4 +615,14 @@ track_t *library_track_by_id(int64_t id)
   return track;
 }
 
+int64_t library_randomid()
+{
+  sqlite3_stmt *query;
+  if (!prepare_query("SELECT rowid FROM tracks ORDER BY RANDOM() LIMIT 1", &query)) {
+    return 0;
+  }
+  return execute_scalar(query);
+}
+
+
 

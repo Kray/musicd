@@ -205,6 +205,18 @@ static int msg_search(client_t *client, char *p)
   return 0;
 }
 
+static int msg_randomid(client_t *client, char *p)
+{
+  (void)p;
+  char line[1025];
+  int64_t id;
+  id = library_randomid();
+  
+  snprintf(line, 1024, "randomid\nid=%li\n\n", id);
+  client_send(client, line);
+  return 0;
+}
+
 static int msg_open(client_t *client, char *p)
 {
   char line[1025];
@@ -368,6 +380,11 @@ int client_process(client_t *client)
   
   if (!strcmp(method, "search")) {
     result = msg_search(client, p);
+    goto exit;
+  }
+  
+  if (!strcmp(method, "randomid")) {
+    result = msg_randomid(client, p);
     goto exit;
   }
   

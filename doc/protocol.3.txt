@@ -90,6 +90,17 @@ Generates one message of type track for every track matching query.
 
 
 
+randomid (client to server)
+Request:
+[none]
+
+Reply:
+id integer required
+
+Returns a valid random track id. If not implemented, id should be 0.
+
+
+
 packet (server to client)
 
 pts integer (required)
