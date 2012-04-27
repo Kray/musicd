@@ -27,31 +27,29 @@ static sqlite3 *db;
 
 static int create_schema();
 
-int db_open(const char* file)
+int db_open(const char *file)
 {
 
   if (sqlite3_open(file, &db) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "db", "Could not open '%s': %s", file, db_error());
+    musicd_log(LOG_ERROR, "db", "can't open '%s': %s", file, db_error());
     return -1;
   }
   
   if (create_schema()) {
-    musicd_log(LOG_ERROR, "db", "Could not create schema.");
-    musicd_log(LOG_ERROR, "db", "Database corrupted, reseting database.");
+    musicd_log(LOG_ERROR, "db", "can't create schema");
+    musicd_log(LOG_ERROR, "db", "database corrupted, reseting");
     db_close();
     
     remove(file);
     
     if (sqlite3_open(file, &db) != SQLITE_OK) {
-      musicd_log(LOG_ERROR, "db", "Could not open '%s': %s", file, db_error());
+      musicd_log(LOG_ERROR, "db", "can't open '%s': %s", file, db_error());
       return -1;
     }
     
     if (create_schema()) {
-      musicd_log(LOG_ERROR, "db",
-                 "Unable to create schema after database reset.");
-      musicd_log(LOG_ERROR, "db",
-                 "This might be caused by a bug. Please report.");
+      musicd_log(LOG_ERROR, "db", "can't create schema after database reset");
+      musicd_log(LOG_ERROR, "db", "this can be a bug, please report");
       return -1;
     }
   }
@@ -81,7 +79,7 @@ void db_simple_exec(const char *sql, int *error)
 {
   int result = sqlite3_exec(db_handle(), sql, NULL, NULL, NULL);
   if (result != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "db", "Could not execute '%s': %s", sql,
+    musicd_log(LOG_ERROR, "db", "can't execute '%s': %s", sql,
                sqlite3_errmsg(db));
     if (error != NULL) {
       *error = result;
@@ -90,14 +88,14 @@ void db_simple_exec(const char *sql, int *error)
 }
 
 
-int db_meta_get_int(const char* key)
+int db_meta_get_int(const char *key)
 {
   sqlite3_stmt *stmt;
   int result;
   static const char *sql = "SELECT value FROM musicd WHERE key = ?";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "db", "Could not query metadata: %s", db_error());
+    musicd_log(LOG_ERROR, "db", "can't query metadata: %s", db_error());
     return 0;
   }
   
@@ -107,7 +105,7 @@ int db_meta_get_int(const char* key)
   if (result == SQLITE_DONE) {
     return 0;
   } else if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "db", "create_schema: sqlite3_step failed.");
+    musicd_log(LOG_ERROR, "db", "create_schema: sqlite3_step failed");
     return 0;
   }
   
@@ -116,13 +114,13 @@ int db_meta_get_int(const char* key)
   
   return result;
 }
-void db_meta_set_int(const char* key, int value)
+void db_meta_set_int(const char *key, int value)
 {
   sqlite3_stmt *stmt;
   static const char *sql = "INSERT OR REPLACE INTO musicd VALUES (?, ?)";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "db", "Could not set metadata: %s", db_error());
+    musicd_log(LOG_ERROR, "db", "can't set metadata: %s", db_error());
     return;
   }
 
@@ -142,16 +140,16 @@ static int create_schema()
 
   db_simple_exec("CREATE TABLE IF NOT EXISTS musicd (key TEXT UNIQUE, value TEXT)", &error);
   if (error) {
-    musicd_log(LOG_ERROR, "db", "Could not create master table.");
+    musicd_log(LOG_ERROR, "db", "can't create master table");
     return -1;
   }
   
   schema = db_meta_get_int("schema");
   
-  musicd_log(LOG_DEBUG, "db", "Schema: %i", schema);
+  musicd_log(LOG_DEBUG, "db", "schema: %i", schema);
 
   if (schema < 1) {
-    musicd_log(LOG_INFO, "db", "New database or pre-0.2 schema.");
+    musicd_log(LOG_INFO, "db", "new database or pre-0.2 schema");
     
     db_simple_exec("DROP TABLE IF EXISTS urls", &error);
     db_simple_exec("DROP TABLE IF EXISTS artists", &error);
@@ -168,15 +166,14 @@ static int create_schema()
   }
   
   if (error) {
-    musicd_log(LOG_ERROR, "db", "Could not create database tables.");
+    musicd_log(LOG_ERROR, "db", "can't create database tables");
     return -1;
   }
   
   db_meta_set_int("schema", 1);
   
-  
   if (error) {
-    musicd_log(LOG_ERROR, "db", "Could not create schema.");
+    musicd_log(LOG_ERROR, "db", "can't create schema");
     return -1;
   }
   

@@ -84,7 +84,7 @@ static void *thread_func(void *data)
   while (1) {
     n = poll(poll_fds, poll_nfds, -1);
     if (n == -1) {
-      musicd_perror(LOG_ERROR, "server", "Could not poll socket(s)");
+      musicd_perror(LOG_ERROR, "server", "could not poll socket(s)");
       continue;
     }
     
@@ -96,7 +96,7 @@ static void *thread_func(void *data)
       if (server_accept()) {
         continue;
       }
-      musicd_log(LOG_INFO, "server", "New client connected.");
+      musicd_log(LOG_INFO, "server", "new client connected");
     }
     
     /* Go through all clients. If...
@@ -113,7 +113,7 @@ static void *thread_func(void *data)
       if (poll_fds[i + 1].revents & POLLIN) {
         if (client_process(client) == 1) {
           server_del_client(client);
-          musicd_log(LOG_INFO, "server", "Client connection closed.");
+          musicd_log(LOG_INFO, "server", "client connection closed");
           break; /* Break, because poll_fds has changed. */
         }
 
@@ -144,7 +144,7 @@ static int server_bind_tcp(const char *address)
   
   master_sock = socket(AF_INET, SOCK_STREAM, 0);
   if (master_sock < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not open socket.");
+    musicd_perror(LOG_ERROR, "server", "could not open socket");
     return -1;
   }
   
@@ -154,8 +154,7 @@ static int server_bind_tcp(const char *address)
     bzero(&sockaddr, sizeof(sockaddr));
     host = gethostbyname(address);
     if (!host) {
-      musicd_log(LOG_ERROR, "server", "Could not resolve address %s.",
-                 address);
+      musicd_log(LOG_ERROR, "server", "could not resolve address %s", address);
       close(master_sock);
       master_sock = -1;
       return -1;
@@ -167,14 +166,14 @@ static int server_bind_tcp(const char *address)
   sockaddr.sin_family = AF_INET;
   sockaddr.sin_port = htons(port);
   
-  if (bind(master_sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not bind socket");
+  if (bind(master_sock, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
+    musicd_perror(LOG_ERROR, "server", "could not bind socket");
     close(master_sock);
     master_sock = -1;
     return -1;
   }
   
-  musicd_log(LOG_VERBOSE, "server", "Listening on %s:%i", address, port);
+  musicd_log(LOG_VERBOSE, "server", "listening on %s:%i", address, port);
 
   return 0;
 }
@@ -185,7 +184,7 @@ static int server_bind_unix(const char *path)
   
   master_sock = socket(AF_UNIX, SOCK_STREAM, 0);
   if (master_sock < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not open socket.");
+    musicd_perror(LOG_ERROR, "server", "could not open socket");
     return -1;
   }
   
@@ -194,14 +193,14 @@ static int server_bind_unix(const char *path)
   
   unlink(sockaddr.sun_path);
   
-  if (bind(master_sock, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not bind socket");
+  if (bind(master_sock, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
+    musicd_perror(LOG_ERROR, "server", "could not bind socket");
     close(master_sock);
     master_sock = -1;
     return -1;
   }
   
-  musicd_log(LOG_VERBOSE, "server", "Listening on %s", path);
+  musicd_log(LOG_VERBOSE, "server", "listening on %s", path);
 
   return 0;
 }
@@ -212,7 +211,7 @@ static int server_bind()
   
   bind = config_get("bind");
   if (strlen(bind) == 0) {
-    musicd_perror(LOG_ERROR, "server", "Invalid value for 'bind'.");
+    musicd_perror(LOG_ERROR, "server", "invalid value for 'bind'");
     return -1;
   }
   
@@ -245,7 +244,7 @@ int server_start()
   listen(master_sock, 5);
   
   if (pthread_create(&thread, NULL, thread_func, NULL)) {
-    musicd_perror(LOG_ERROR, "server", "Could not create thread");
+    musicd_perror(LOG_ERROR, "server", "could not create thread");
     close(master_sock);
     master_sock = -1;
     return -1;
@@ -259,10 +258,10 @@ int server_accept()
   int sock;
   struct sockaddr_in cli_addr;
   socklen_t clilen = sizeof(struct sockaddr_in);
-  client_t* client;
-  sock = accept(master_sock, (struct sockaddr*)&cli_addr, &clilen);
+  client_t *client;
+  sock = accept(master_sock, (struct sockaddr *)&cli_addr, &clilen);
   if (sock < 0) {
-    musicd_perror(LOG_ERROR, "server", "Could not accept incoming connection");
+    musicd_perror(LOG_ERROR, "server", "could not accept incoming connection");
     return -1;
   }
   client = client_new(sock);

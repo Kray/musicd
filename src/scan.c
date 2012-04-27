@@ -50,7 +50,7 @@ int scan_start()
   }
   
   if (pthread_create(&thread, NULL, scan_thread_func, NULL)) {
-    musicd_perror(LOG_ERROR, "scan", "Could not create thread");
+    musicd_perror(LOG_ERROR, "scan", "could not create thread");
     return -1;
   }
   
@@ -120,15 +120,17 @@ static void iterate_directory(const char *dirpath, int dir_id)
   int64_t url;
   time_t url_mtime;
   
-  /* + 256 4-bit UTF-8 characters + / and \0 
-   * More than enough on every platform really in use. */
-  char *path = malloc(strlen(dirpath) + 1024 + 2);
+  char *path;
   
   if (!(dir = opendir(dirpath))) {
     /* Probably no read access - ok, we just omit. */
-    musicd_perror(LOG_WARNING, "scan", "Could not open directory %s", path);
+    musicd_perror(LOG_WARNING, "scan", "could not open directory %s", dirpath);
     return;
   }
+  
+  /* + 256 4-bit UTF-8 characters + / and \0 
+   * More than enough on every platform really in use. */
+  path = malloc(strlen(dirpath) + 1024 + 2);
   
   errno = 0;
   while ((entry = readdir(dir))) {
@@ -177,9 +179,9 @@ static void iterate_directory(const char *dirpath, int dir_id)
   if (errno) {
     /* It was possible to open the directory but we can't iterate it anymore?
      * Something's fishy. */
-    musicd_perror(LOG_ERROR, "scan", "Could not iterate directory %s",
-                  path);
+    musicd_perror(LOG_ERROR, "scan", "could not iterate directory %s", path);
   }
+  free(path);
 }
 
 
@@ -188,8 +190,7 @@ static bool scan_urls_cb(library_url_t *url)
   struct stat status;
   
   if (stat(url->path, &status)) {
-    musicd_perror(LOG_DEBUG, "scan", "Removing url %s",
-                  url->path);
+    musicd_perror(LOG_DEBUG, "scan", "removing url %s", url->path);
     library_url_delete(url->id);
     return true;
   }
@@ -223,8 +224,7 @@ static bool scan_directory_cb(library_directory_t *directory)
 {
   struct stat status;
   if (stat(directory->path, &status)) {
-    musicd_perror(LOG_DEBUG, "scan", "Removing directory %s",
-                  directory->path);
+    musicd_perror(LOG_DEBUG, "scan", "removing directory %s", directory->path);
     library_directory_delete(directory->id);
     return true;
   }
@@ -262,7 +262,7 @@ static void scan_directory(const char *dirpath, int parent)
   dir_id = library_directory(dirpath, -1);
   
   if (stat(dirpath, &status)) {
-    musicd_perror(LOG_WARNING, "scan", "Could not stat directory %s", dirpath);
+    musicd_perror(LOG_WARNING, "scan", "could not stat directory %s", dirpath);
     if (dir_id) {
       library_directory_delete(dir_id);
     }
@@ -297,7 +297,7 @@ static void scan() {
   time_t now;
   
   if (raw_path == NULL) {
-    musicd_log(LOG_INFO, "scan", "music-directory not set, not scanning.");
+    musicd_log(LOG_INFO, "scan", "music-directory not set, not scanning");
     return;
   }
   
@@ -312,7 +312,7 @@ static void scan() {
   last_scan = db_meta_get_int("last-scan");
   now = time(NULL);
   
-  musicd_log(LOG_INFO, "scan", "Starting scanning.");
+  musicd_log(LOG_INFO, "scan", "starting scanning");
   
   signal(SIGINT, scan_signal_handler);
   
@@ -323,11 +323,11 @@ static void scan() {
   signal(SIGINT, NULL);
   
   if (interrupted) {  
-    musicd_log(LOG_INFO, "scan", "Scanning interrupted.");
+    musicd_log(LOG_INFO, "scan", "scanning interrupted");
     return;
   }
   
-  musicd_log(LOG_INFO, "scan", "Scanning finished.");
+  musicd_log(LOG_INFO, "scan", "scanning finished");
   
   db_meta_set_int("last-scan", now);
 }

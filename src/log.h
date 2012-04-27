@@ -25,8 +25,8 @@
 #define LOG_VERBOSE 4
 #define LOG_DEBUG 5
 
-void musicd_log(int level, const char *subsys, const char* fmt, ...);
-void musicd_perror(int level, const char *subsys, const char* fmt, ...);
+void musicd_log(int level, const char *subsys, const char *fmt, ...);
+void musicd_perror(int level, const char *subsys, const char *fmt, ...);
 
 void log_level_changed(char *level);
 

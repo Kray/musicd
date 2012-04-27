@@ -190,7 +190,8 @@ static int msg_search(client_t *client, char *p)
   
   query = library_search(LIBRARY_TABLE_TRACKS, LIBRARY_FIELD_NONE, needle);
   if (!query) {
-    musicd_log(LOG_ERROR, "main", "No query.");
+    musicd_log(LOG_ERROR, "client", "no query returned for search '%s'",
+               needle);
   }
   
   while (!library_query_next(query, &track)) {
@@ -334,11 +335,11 @@ int client_process(client_t *client)
   
   n = read(client->fd, buffer, 1024);
   if (n == 0) {
-    musicd_log(LOG_INFO, "client", "Client exits.");
+    musicd_log(LOG_INFO, "client", "client exits");
     return 1;
   }
   if (n < 0) {
-    musicd_perror(LOG_INFO, "client", "Terminating client");
+    musicd_perror(LOG_INFO, "client", "terminating client");
     return 1;
   }
   
@@ -366,7 +367,7 @@ int client_process(client_t *client)
   
   method = line_read(&p);
   
-  musicd_log(LOG_VERBOSE, "client", "Method: '%s'", method);
+  musicd_log(LOG_VERBOSE, "client", "method: '%s'", method);
   
   if (!strcmp(method, "auth")) {
     result = msg_auth(client, p);

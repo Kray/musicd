@@ -128,7 +128,7 @@ void config_init()
   TAILQ_INIT(&settings);
 }
 
-void config_set_hook(const char* key, void (*hook)(char*))
+void config_set_hook(const char *key, void (*hook)(char *value))
 {
   setting_t *setting = setting_by_key(key);
   if (!setting) {
@@ -139,7 +139,7 @@ void config_set_hook(const char* key, void (*hook)(char*))
 }
 
 
-int config_load_file(const char* path)
+int config_load_file(const char *path)
 {
   FILE *file;
   char *line, *key, *value;
@@ -147,7 +147,7 @@ int config_load_file(const char* path)
   
   file = fopen(path, "r");
   if (!file) {
-    musicd_perror(LOG_ERROR, "config", "Can't open config file '%s'", path);
+    musicd_perror(LOG_ERROR, "config", "can't open config file '%s'", path);
     return -1;
   }
   
@@ -195,7 +195,7 @@ int config_load_args(int argc, char **argv)
   for (i = 1; i < argc; ++i) {
     key = argv[i];
     if (key[0] != '-' || key[1] != '-') {
-      musicd_log(LOG_ERROR, "config", "Invalid cmd line flag '%s'", key);
+      musicd_log(LOG_ERROR, "config", "invalid cmdline flag '%s'", key);
       return -1;
     }
     if (argc > i + 1) {
@@ -209,14 +209,14 @@ int config_load_args(int argc, char **argv)
 }
 
 
-const char* config_get(const char *key)
+const char *config_get(const char *key)
 {
   const char *result = config_get_value(key);
   return result ? result : "";
 }
 
 
-char* config_get_value(const char *key)
+char *config_get_value(const char *key)
 {
   setting_t *setting = setting_by_key(key);
   if (!setting) {
@@ -225,7 +225,7 @@ char* config_get_value(const char *key)
   return setting->value;
 }
 
-char* config_to_path(const char *key)
+char *config_to_path(const char *key)
 {
   char *home, *value;
   int str_len;
@@ -244,7 +244,7 @@ char* config_to_path(const char *key)
   
   home = getenv("HOME");
   if (!home) {
-    musicd_log(LOG_ERROR, "config", "$HOME is not set.");
+    musicd_log(LOG_ERROR, "config", "$HOME not set");
     return NULL;
   }
   
@@ -281,7 +281,7 @@ int config_to_int(const char *key)
   return result;
 }
 
-int config_to_bool(const char* key)
+int config_to_bool(const char *key)
 {
   setting_t *setting = setting_by_key(key);
   if (!setting) {

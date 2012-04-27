@@ -32,7 +32,7 @@ const char *log_prefix[] =
 int log_level = LOG_INFO;
 
 static void print
-  (int level, const char* subsys, const char* fmt, va_list va_args)
+  (int level, const char* subsys, const char *fmt, va_list va_args)
 {
   time_t now;
   const char *timefmt;
@@ -61,7 +61,7 @@ static void print
 
 }
 
-void musicd_log(int level, const char* subsys, const char* fmt, ...)
+void musicd_log(int level, const char *subsys, const char *fmt, ...)
 {
   va_list va_args;
   if (level > log_level) {
@@ -73,7 +73,7 @@ void musicd_log(int level, const char* subsys, const char* fmt, ...)
   va_end(va_args);
 }
 
-void musicd_perror(int level, const char* subsys, const char* fmt, ... )
+void musicd_perror(int level, const char *subsys, const char *fmt, ... )
 {
   va_list va_args;
   if (level > log_level) {

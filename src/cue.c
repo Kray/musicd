@@ -24,7 +24,8 @@
 #include <sys/stat.h>
 #include <libgen.h>
 
-static int read_line(FILE *file, char *buf, int buf_size) {
+static int read_line(FILE *file, char *buf, int buf_size)
+{
   int c, begun = 0, pos = 0;
   
   while (1) {
@@ -118,7 +119,7 @@ bool cue_read(const char *cuepath, int64_t directory)
   
   file = fopen(cuepath, "r");
   if (!file) {
-    musicd_perror(LOG_ERROR, "cue", "Could not open file %s", cuepath);
+    musicd_perror(LOG_ERROR, "cue", "can't open file %s", cuepath);
     return false;
   }
   
@@ -179,8 +180,8 @@ bool cue_read(const char *cuepath, int64_t directory)
       }
     } else if (!strcmp(instr, "FILE")) {
       if (file_track) {
-        musicd_log(LOG_WARNING, "cue", "Multiple FILEs in a single cue sheet"
-                                       "(%s) is currently unsupported. Sorry",
+        musicd_log(LOG_WARNING, "cue", "multiple FILEs in a single cue sheet"
+                                       "(%s) is currently unsupported, sorry",
                                         cuepath);
         break;
       }
@@ -204,7 +205,7 @@ bool cue_read(const char *cuepath, int64_t directory)
       
       if (strcmp(path2, cuepath) && stat(path2, &status) == 0) {
         musicd_log(LOG_DEBUG, "cue",
-                   "Multiple cue sheets for '%s', trying '%s'",
+                   "multiple cue sheets for '%s', trying '%s'",
                    path, path2);
         if (cue_read(path2, directory)) {
           break;

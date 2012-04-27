@@ -109,7 +109,7 @@ void stream_close(stream_t *stream)
   free(stream);
 }
 
-int stream_set_transcoder(stream_t* stream, transcoder_t *transcoder)
+int stream_set_transcoder(stream_t *stream, transcoder_t *transcoder)
 {
   if (stream->transcoder) {
     transcoder_close(stream->transcoder);
@@ -152,7 +152,7 @@ static int read_next(stream_t *stream)
   return 0;
 }
 
-uint8_t* stream_next(stream_t *stream, int *size, int64_t *pts)
+uint8_t *stream_next(stream_t *stream, int *size, int64_t *pts)
 {
   int result = 0;
   

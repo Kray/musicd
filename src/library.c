@@ -36,7 +36,7 @@ int library_open()
   }
   
   if (db_open(file)) {
-    musicd_log(LOG_ERROR, "library", "Database couldn't be opened.");
+    musicd_log(LOG_ERROR, "library", "can't open database");
     return -1;
   }
   
@@ -47,7 +47,7 @@ int library_open()
 static bool prepare_query(const char *sql, sqlite3_stmt **query)
 {
   if (sqlite3_prepare_v2(db_handle(), sql, -1, query, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s",
+    musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s",
                sql, db_error());
     return false;
   }
@@ -60,7 +60,7 @@ static bool execute(sqlite3_stmt *query)
   if (result == SQLITE_DONE || result == SQLITE_ROW) {
     result = true;
   } else {
-    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.",
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'",
                sqlite3_sql(query));
     result = false;
   }
@@ -76,7 +76,7 @@ static int64_t execute_scalar(sqlite3_stmt *query)
   } else if (result == SQLITE_DONE) {
     result = 0;
   } else {
-    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.",
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'",
                sqlite3_sql(query));
     result = -1;
   }
@@ -240,7 +240,7 @@ void library_iterate_urls_by_directory
     }
   }
   if (result != SQLITE_DONE && result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
   }
   
   sqlite3_finalize(query);
@@ -389,7 +389,7 @@ void library_iterate_directories
     }
   }
   if (result != SQLITE_DONE && result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
   }
   
   sqlite3_finalize(query);
@@ -445,7 +445,7 @@ void library_iterate_images_by_directory
     }
   }
   if (result != SQLITE_DONE && result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'.", sql);
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
   }
   
   sqlite3_finalize(query);
@@ -525,7 +525,7 @@ library_query_t *library_search
     }
   }*/
   if (sqlite3_prepare_v2(db_handle(), q_track_all, -1, &result, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql, db_error());
+    musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql, db_error());
     return NULL;
   }
   
@@ -546,7 +546,7 @@ int library_query_next(library_query_t *query, track_t* track)
   if (result == SQLITE_DONE) {
     return 1;
   } else if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "library_search_next: sqlite3_step failed.");
+    musicd_log(LOG_ERROR, "library", "library_search_next: sqlite3_step failed");
     return -1;
   }
   
@@ -583,7 +583,7 @@ track_t *library_track_by_id(int64_t id)
     "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
   if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "Could not prepare '%s': %s", sql,
+    musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql,
                db_error());
     return NULL;
   }
@@ -594,7 +594,7 @@ track_t *library_track_by_id(int64_t id)
   if (result == SQLITE_DONE) {
     return NULL;
   } else if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "library_track_by_id: sqlite3_step failed.");
+    musicd_log(LOG_ERROR, "library", "library_track_by_id: sqlite3_step failed");
     return NULL;
   }
   

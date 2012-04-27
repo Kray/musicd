@@ -70,7 +70,7 @@ static void create_default_paths()
   
   home = getenv("HOME");
   if (!home) {
-    musicd_log(LOG_ERROR, "main", "$HOME is not set.");
+    musicd_log(LOG_ERROR, "main", "$HOME not set");
     return;
   }
   
@@ -79,7 +79,7 @@ static void create_default_paths()
   sprintf(path, "%s/.musicd/", home);
   if (stat(path, &status)) {
     if (mkdir(path, 0777)) {
-      musicd_perror(LOG_ERROR, "main", "Could not create directory %s", path);
+      musicd_perror(LOG_ERROR, "main", "could not create directory %s", path);
       goto exit;
     }
   }
@@ -88,7 +88,7 @@ static void create_default_paths()
   if (stat(path, &status)) {
     file = fopen(path, "w");
     if (!file) {
-      musicd_perror(LOG_ERROR, "main", "Could not create file %s", path);
+      musicd_perror(LOG_ERROR, "main", "could not create file %s", path);
       goto exit;
     }
     fprintf(file,"# See man musicd or example musicd.conf distributed with "
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
   config_set("port", "6800");
   
   if (config_load_args(argc, argv)) {
-    musicd_log(LOG_FATAL, "main", "Invalid command line arguments.");
+    musicd_log(LOG_FATAL, "main", "invalid command line arguments");
     print_usage(argv[0]);
     return -1;
   }
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
   
   if (!config_to_bool("no-config")
    && config_load_file(config_to_path("config"))) {
-    musicd_log(LOG_FATAL, "main", "Could not read config file.");
+    musicd_log(LOG_FATAL, "main", "could not read config file");
     return -1;
   }
   
@@ -146,18 +146,17 @@ int main(int argc, char* argv[])
   av_log_set_level(AV_LOG_QUIET);
   
   if (library_open()) {
-    musicd_log(LOG_FATAL, "main", "Could not open library.");
+    musicd_log(LOG_FATAL, "main", "could not open library");
     return -1;
   }
   
   if (server_start()) {
-    musicd_log(LOG_FATAL, "main", "Could not start server.");
+    musicd_log(LOG_FATAL, "main", "could not start server");
     return -1;
   }
   
   if (!config_get_value("music-directory")) {
-    musicd_log(LOG_WARNING, "main", "music-directory not set, scanning will "
-                                    "be disabled.");
+    musicd_log(LOG_WARNING, "main", "music-directory not set, no scanning");
   } else {
     scan_start();
   }

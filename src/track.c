@@ -44,20 +44,19 @@ track_t *track_new()
 
 track_t *track_from_path(const char *path)
 {
-  AVFormatContext* avctx = NULL;
+  AVFormatContext *avctx = NULL;
   track_t *track;
   char *tmp;
   
   /**
    * @todo TODO Own probing for ensuring probing score high enough to be sure
-   * about file really being an audio file. */
+   * about the file really being an audio file. */
   
   if (avformat_open_input(&avctx, path, NULL, NULL)) {
     return NULL;
   }
   
-  if (avctx->nb_streams < 1
-   || avctx->duration < 1) {
+  if (avctx->nb_streams < 1 || avctx->duration < 1) {
     if (av_find_stream_info(avctx) < 0) {
       av_close_input_file(avctx);
       return NULL;

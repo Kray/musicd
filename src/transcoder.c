@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
+transcoder_t *transcoder_open(format_t *format, const char *codec, int bitrate)
 {
   int result;
   AVCodec *codec_in, *codec_out;
@@ -37,20 +37,20 @@ transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
   }
   
   if (strcmp(codec, "mp3")) {
-    musicd_log(LOG_ERROR, "transcoder", "Unsupported codec '%s' requested.",
+    musicd_log(LOG_ERROR, "transcoder", "unsupported codec '%s' requested",
                codec);
     return NULL;
   }
   
   codec_in = avcodec_find_decoder_by_name(format->codec);
   if (!codec_in) {
-    musicd_log(LOG_ERROR, "transcoder", "Decoder not found.");
+    musicd_log(LOG_ERROR, "transcoder", "decoder not found");
     return NULL;
   }
   
   codec_out = avcodec_find_encoder(CODEC_ID_MP3);
   if (!codec_out) {
-    musicd_log(LOG_ERROR, "transcoder", "Requested encoder not found.");
+    musicd_log(LOG_ERROR, "transcoder", "requested encoder not found");
     return NULL;
   }
   
@@ -59,12 +59,12 @@ transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
   
   decoder->sample_rate = format->samplerate;
   decoder->channels = format->channels;
-  decoder->extradata = (uint8_t*)format->extradata;
+  decoder->extradata = (uint8_t *)format->extradata;
   decoder->extradata_size = format->extradata_size;
   
   result = avcodec_open(decoder, codec_in);
   if (result < 0) {
-    musicd_log(LOG_ERROR, "transcoder", "Could not open decoder: %s",
+    musicd_log(LOG_ERROR, "transcoder", "could not open decoder: %s",
                strerror(AVUNERROR(result)));
     goto fail;
   }
@@ -84,7 +84,7 @@ transcoder_t* transcoder_open(format_t *format, const char *codec, int bitrate)
   
   result = avcodec_open(encoder, codec_out);
   if (result < 0) {
-    musicd_log(LOG_ERROR, "transcoder", "Could not open encoder: %s",
+    musicd_log(LOG_ERROR, "transcoder", "could not open encoder: %s",
                strerror(AVUNERROR(result)));
     avcodec_close(decoder);
     goto fail;
@@ -138,7 +138,7 @@ static int decode_next(transcoder_t *transcoder, uint8_t *data, int src_size)
   result = avcodec_decode_audio3(transcoder->decoder, samples, &size,
                                  &transcoder->avpacket);
   if (result < 0) {
-    musicd_log(LOG_ERROR, "transcoder", "Could not decode: %s",
+    musicd_log(LOG_ERROR, "transcoder", "could not decode: %s",
                strerror(AVUNERROR(result)));
     return -1;
   }
@@ -161,9 +161,10 @@ static int encode_next(transcoder_t *transcoder)
   }
   
   result = avcodec_encode_audio(transcoder->encoder, transcoder->packet,
-                                FF_MIN_BUFFER_SIZE, (int16_t*)transcoder->buf);
+                                FF_MIN_BUFFER_SIZE,
+                                (int16_t *)transcoder->buf);
   if (result < 0) {
-    musicd_log(LOG_ERROR, "transcoder", "Could not encode: %s",
+    musicd_log(LOG_ERROR, "transcoder", "could not encode: %s",
                strerror(AVUNERROR(result)));
     return -1;
   }
@@ -180,7 +181,7 @@ static int encode_next(transcoder_t *transcoder)
   
   return result;
 }
-int transcoder_transcode(transcoder_t *transcoder, uint8_t* src, int size)
+int transcoder_transcode(transcoder_t *transcoder, uint8_t *src, int size)
 {
   if (src) {
     if (decode_next(transcoder, src, size)) {
