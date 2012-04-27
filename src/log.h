@@ -29,5 +29,6 @@ void musicd_log(int level, const char *subsys, const char *fmt, ...);
 void musicd_perror(int level, const char *subsys, const char *fmt, ...);
 
 void log_level_changed(char *level);
+void log_time_format_changed(char *format);
 
 #endif

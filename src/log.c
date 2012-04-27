@@ -30,18 +30,17 @@ const char *log_prefix[] =
   { "FATAL", "ERROR", "Warning", "Info", "Verbose", "Debug" };
 
 int log_level = LOG_INFO;
+const char *log_time_format = "%H:%M:%S";
 
 static void print
-  (int level, const char* subsys, const char *fmt, va_list va_args)
+  (int level, const char * subsys, const char *fmt, va_list va_args)
 {
   time_t now;
-  const char *timefmt;
   char timestr[128];
   
   now = time(NULL);
-  timefmt = config_get("log-time-format");
   
-  if (strftime(timestr, sizeof(timestr), timefmt, localtime(&now)) == 0) {
+  if (!strftime(timestr, sizeof(timestr), log_time_format, localtime(&now))) {
     timestr[0] = '\0';
   }
   
@@ -107,3 +106,9 @@ void log_level_changed(char *level)
     log_level = LOG_DEBUG;
   }
 }
+
+void log_time_format_changed(char* format)
+{
+  log_time_format = format;
+}
+
