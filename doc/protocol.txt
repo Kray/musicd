@@ -34,9 +34,10 @@ Version 2
 Version 3 (Working draft)
 =========================
 
+* Clarifications to syntax and types
 * Changes to protocol:
-  * open
-    + Reply: replaytrackgain floating
-    + Reply: replaytrackpeak floating
-    + Reply: replayalbumgain floating
-    + Reply: replayalbumpeak floating
+  * open (server)
+    + replaytrackgain floating
+    + replaytrackpeak floating
+    + replayalbumgain floating
+    + replayalbumpeak floating
