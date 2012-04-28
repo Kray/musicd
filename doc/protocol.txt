@@ -41,3 +41,6 @@ Version 3 (Working draft)
     + replaytrackpeak floating
     + replayalbumgain floating
     + replayalbumpeak floating
+  * track (server
+    + artistid id
+    + albumid id

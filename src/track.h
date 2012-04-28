@@ -21,13 +21,15 @@
 #include "libav.h"
 
 typedef struct track {
-  int id;
+  int64_t id;
   
   char *path;
   
   int track;
   char *title;
+  int64_t artistid;
   char *artist;
+  int64_t albumid;
   char *album;
   char *albumartist;
   

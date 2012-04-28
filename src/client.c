@@ -53,11 +53,13 @@ void client_close(client_t *client)
 void client_send_track(client_t *client, track_t* track)
 {
   client_send(client, "track\n");
-  client_send(client, "id=%i\n", track->id);
+  client_send(client, "id=%lu\n", track->id);
   client_send(client, "path=%s\n", track->path);
   client_send(client, "track=%i\n", track->track);
   client_send(client, "title=%s\n", track->title);
+  client_send(client, "artistid=%lu\n", track->artistid);
   client_send(client, "artist=%s\n", track->artist);
+  client_send(client, "albumid=%lu\n", track->albumid);
   client_send(client, "album=%s\n", track->album);
   client_send(client, "duration=%i\n", track->duration);
   client_send(client, "\n");

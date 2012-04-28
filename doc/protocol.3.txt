@@ -101,7 +101,9 @@ id id required
 path string
 track integer
 title string
+artistid id
 artist string
+albumid id
 album string
 duration integer
 

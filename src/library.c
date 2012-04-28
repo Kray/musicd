@@ -416,11 +416,12 @@ int64_t library_image_add(int64_t url)
   return sqlite3_last_insert_rowid(db_handle());
 }
 
+
 void library_iterate_images_by_directory
   (int64_t directory, bool (*callback)(library_image_t *url))
 {
   static const char *sql =
-    "select images.rowid AS id, urls.path AS path, images.album AS album FROM urls JOIN images ON images.url = urls.rowid WHERE urls.directory = ?;";
+    "SELECT images.rowid AS id, urls.path AS path, images.album AS album FROM urls JOIN images ON images.url = urls.rowid WHERE urls.directory = ?;";
   sqlite3_stmt *query;
   int result;
   library_image_t image;
@@ -580,7 +581,7 @@ track_t *library_track_by_id(int64_t id)
   track_t *track;
   int result;
   static const char *sql =
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
+    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
   if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql,
@@ -603,10 +604,12 @@ track_t *library_track_by_id(int64_t id)
   track->path = dup_or_empty((const char*)sqlite3_column_text(stmt, 1));
   track->track = sqlite3_column_int(stmt, 2);
   track->title = dup_or_empty((const char*)sqlite3_column_text(stmt, 3));
-  track->artist = dup_or_empty((const char*)sqlite3_column_text(stmt, 4));
-  track->album = dup_or_empty((const char*)sqlite3_column_text(stmt, 5));
-  track->start = sqlite3_column_int(stmt, 6);
-  track->duration = sqlite3_column_int(stmt, 7);
+  track->artistid = sqlite3_column_int(stmt, 4);
+  track->artist = dup_or_empty((const char*)sqlite3_column_text(stmt, 5));
+  track->albumid = sqlite3_column_int(stmt, 6);
+  track->album = dup_or_empty((const char*)sqlite3_column_text(stmt, 7));
+  track->start = sqlite3_column_int(stmt, 8);
+  track->duration = sqlite3_column_int(stmt, 9);
   
   musicd_log(LOG_DEBUG, "library", "%i %s %i %s %s %s %i %i", track->id,
              track->path, track->track, track->title, track->artist,
