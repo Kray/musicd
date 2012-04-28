@@ -52,31 +52,14 @@ void client_close(client_t *client)
 
 void client_send_track(client_t *client, track_t* track)
 {
-  char line[1025];
-  
   client_send(client, "track\n");
-    
-  snprintf(line, 1024, "id=%i\n", track->id);
-  client_send(client, line);
-
-  snprintf(line, 1024, "path=%s\n", track->path);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "track=%i\n", track->track);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "title=%s\n", track->title);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "artist=%s\n", track->artist);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "album=%s\n", track->album);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "duration=%i\n", track->duration);
-  client_send(client, line);
-  
+  client_send(client, "id=%i\n", track->id);
+  client_send(client, "path=%s\n", track->path);
+  client_send(client, "track=%i\n", track->track);
+  client_send(client, "title=%s\n", track->title);
+  client_send(client, "artist=%s\n", track->artist);
+  client_send(client, "album=%s\n", track->album);
+  client_send(client, "duration=%i\n", track->duration);
   client_send(client, "\n");
 }
 
@@ -136,22 +119,19 @@ static int get_int(char *src, const char *key)
 
 static int client_error(client_t *client, const char *code)
 {
-  char buffer[strlen(code) + 8];
-  
-  sprintf(buffer, "error\nname=%s\n\n", code);
-  write(client->fd, buffer, strlen(buffer));
+  client_send(client, "error\nname=%s\n\n", code);
   return -1;
 }
 
 
-static int msg_auth(client_t *client, char *p)
+static int method_auth(client_t *client, char *p)
 {
   char *user, *pass;
   
   user = get_str(p, "user");
   pass = get_str(p, "password");
   
-  musicd_log(LOG_DEBUG, "client", "%s %s", user, pass);
+  /*musicd_log(LOG_DEBUG, "client", "%s %s", user, pass);*/
   
   if (!user || strcmp(user, config_get("user"))
    || !pass || strcmp(pass, config_get("password"))) {
@@ -169,7 +149,7 @@ static int msg_auth(client_t *client, char *p)
 }
 
 
-static int msg_search(client_t *client, char *p)
+static int method_search(client_t *client, char *p)
 {
   char *search, *needle;
   library_query_t *query;
@@ -206,21 +186,18 @@ static int msg_search(client_t *client, char *p)
   return 0;
 }
 
-static int msg_randomid(client_t *client, char *p)
+static int method_randomid(client_t *client, char *p)
 {
   (void)p;
-  char line[1025];
   int64_t id;
   id = library_randomid();
   
-  snprintf(line, 1024, "randomid\nid=%li\n\n", id);
-  client_send(client, line);
+  client_send(client, "randomid\nid=%li\n\n", id);
   return 0;
 }
 
-static int msg_open(client_t *client, char *p)
+static int method_open(client_t *client, char *p)
 {
-  char line[1025];
   track_t *track;
   int id;
   char *codec;
@@ -261,39 +238,30 @@ static int msg_open(client_t *client, char *p)
   client_send_track(client, track);
   
   client_send(client, "open\n");
-  
-  snprintf(line, 1024, "codec=%s\n", client->stream->format->codec);
-  client_send(client, line);
-  snprintf(line, 1024, "samplerate=%i\n", client->stream->format->samplerate);
-  client_send(client, line);
-  snprintf(line, 1024, "bitspersample=%i\n",
-           client->stream->format->bitspersample);
-  client_send(client, line);
-  snprintf(line, 1024, "channels=%i\n", client->stream->format->channels);
-  client_send(client, line);
+  client_send(client, "codec=%s\n", client->stream->format->codec);
+  client_send(client, "samplerate=%i\n", client->stream->format->samplerate);
+  client_send(client, "bitspersample=%i\n",
+              client->stream->format->bitspersample);
+  client_send(client, "channels=%i\n", client->stream->format->channels);
   
   /* Replay gain */
   if (client->stream->replay_track_gain != 0.0) {
-    snprintf(line, 1024, "replaytrackgain=%f\n", client->stream->replay_track_gain);
-    client_send(client, line);
+    client_send(client, "replaytrackgain=%f\n", client->stream->replay_track_gain);  
   }
   if (client->stream->replay_album_gain != 0.0) {
-    snprintf(line, 1024, "replayalbumgain=%f\n", client->stream->replay_album_gain);
-    client_send(client, line);
+    client_send(client, "replayalbumgain=%f\n", client->stream->replay_album_gain);
   }
   if (client->stream->replay_track_peak != 0.0) {
-    snprintf(line, 1024, "replaytrackpeak=%f\n", client->stream->replay_track_peak);
-    client_send(client, line);
+    client_send(client, "replaytrackpeak=%f\n", client->stream->replay_track_peak);
   }
   if (client->stream->replay_album_peak != 0.0) {
-    snprintf(line, 1024, "replayalbumpeak=%f\n", client->stream->replay_album_peak);
-    client_send(client, line);
+    client_send(client, "replayalbumpeak=%f\n", client->stream->replay_album_peak);
   }
   
   
   if (client->stream->format->extradata_size > 0) {
-    sprintf(line, "extradata:=%i\n\n", client->stream->format->extradata_size);
-    client_send(client, line);
+    client_send(client, "extradata:=%i\n\n", client->stream->format->extradata_size);
+    
     write(client->fd, client->stream->format->extradata,
           client->stream->format->extradata_size);
   } else {
@@ -303,7 +271,7 @@ static int msg_open(client_t *client, char *p)
   return 0;
 }
 
-static int msg_seek(client_t *client, char *p)
+static int method_seek(client_t *client, char *p)
 {
   int position;
   int result;
@@ -326,12 +294,59 @@ static int msg_seek(client_t *client, char *p)
   return 0;
 }
 
+struct method_entry {
+  const char *name;
+  int (*handler)(client_t *client, char *p);
+  /*int flags;*/
+};
+static struct method_entry methods[] = {
+  { "search", method_search },
+  { "randomid", method_randomid },
+  { "open", method_open },
+  { "seek", method_seek },
+  { NULL, NULL }
+};
+
+static int process_call(client_t *client)
+{
+  char *p = client->buf;
+  char *method;
+  int result;
+  struct method_entry *entry;
+  
+  method = line_read(&p);
+  
+  musicd_log(LOG_VERBOSE, "client", "method: '%s'", method);
+  
+  /* auth is special case */
+  if (!strcmp(method, "auth")) {
+    result = method_auth(client, p);
+    goto exit;
+  }
+  
+  if (client->user == NULL) {
+    client_error(client, "unauthorized");
+    goto exit;
+  }
+  
+  for (entry = methods; entry->name != NULL; ++entry) {
+    if (!strcmp(entry->name, method)) {
+      result = entry->handler(client, p);
+      goto exit;
+    }
+  }
+  
+  client_error(client, "unknown_method");
+  
+exit:
+  free(method);
+  return result;
+}
+
 int client_process(client_t *client)
 {
   char *tmp, buffer[1025];
   int n, result = 0;
-  char *p;
-  char *method;
   
   n = read(client->fd, buffer, 1024);
   if (n == 0) {
@@ -362,48 +377,9 @@ int client_process(client_t *client)
   }
   
   client->buf[client->buf_size] = '\0';
-
-  p = client->buf;
   
-  method = line_read(&p);
+  result = process_call(client);
   
-  musicd_log(LOG_VERBOSE, "client", "method: '%s'", method);
-  
-  if (!strcmp(method, "auth")) {
-    result = msg_auth(client, p);
-    goto exit;
-  }
-  
-  if (client->user == NULL) {
-    client_error(client, "unauthorized");
-    goto exit;
-  }
-  
-  if (!strcmp(method, "search")) {
-    result = msg_search(client, p);
-    goto exit;
-  }
-  
-  if (!strcmp(method, "randomid")) {
-    result = msg_randomid(client, p);
-    goto exit;
-  }
-  
-  if (!strcmp(method, "open")) {
-    result = msg_open(client, p);
-    goto exit;
-  }
-  
-  if (!strcmp(method, "seek")) {
-    result = msg_seek(client, p);
-    goto exit;
-  }
-  
-  client_error(client, "unknown_method");
-  
-  
-exit:
-  free(method);
   free(client->buf);
   client->buf = NULL;
   client->buf_size = 0;
@@ -411,9 +387,34 @@ exit:
 }
 
 
-int client_send(client_t *client, const char *msg)
+int client_send(client_t *client, const char *format, ...)
 {
-  return write(client->fd, msg, strlen(msg));
+  int n, size = 128;
+  char *buf;
+  va_list va_args;
+
+  buf = malloc(size);
+  
+  while (1) {
+    va_start(va_args, format);
+    n = vsnprintf(buf, size, format, va_args);
+    va_end(va_args);
+    
+    if (n > -1 && n < size) {
+      break;
+    }
+    
+    if (n > -1) {
+      size = n + 1;
+    } else {
+      size *= 2;
+    }
+    
+    buf = realloc(buf, size);
+  }
+  n = write(client->fd, buf, n);
+  free(buf);
+  return n;
 }
 
 
@@ -422,7 +423,6 @@ int client_next_packet(client_t* client)
   uint8_t *data;
   int size;
   int64_t pts;
-  char line[1025];
   
   if (!client->stream) {
     /* what? */
@@ -437,13 +437,8 @@ int client_next_packet(client_t* client)
   }
   
   client_send(client, "packet\n");
-  
-  snprintf(line, 1024, "pts=%li\n", pts);
-  client_send(client, line);
-  
-  snprintf(line, 1024, "payload:=%i\n", size);
-  client_send(client, line);
-  
+  client_send(client, "pts=%li\n", pts);
+  client_send(client, "payload:=%i\n", size);
   client_send(client, "\n");
 
   write(client->fd, data, size);
