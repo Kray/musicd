@@ -49,7 +49,7 @@ void client_close(client_t *client);
  */
 int client_process(client_t *client);
 
-int client_send(client_t *client, const char *msg);
+int client_send(client_t *client, const char *format, ...);
 
 int client_next_packet(client_t *client);
 
