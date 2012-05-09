@@ -35,12 +35,17 @@ Version 3 (Working draft)
 =========================
 
 * Clarifications to syntax and types
+
 * Changes to protocol:
   * open (server)
     + replaytrackgain floating
     + replaytrackpeak floating
     + replayalbumgain floating
     + replayalbumpeak floating
-  * track (server
+  * track (server)
     + artistid id
     + albumid id
+
+* Additions to protocol:
+  + randomid (client)
+  + randomid (server)
