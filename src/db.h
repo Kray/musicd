@@ -19,13 +19,13 @@
 #define MUSICD_DB_H
 
 #include <stdint.h>
+#include <sqlite3.h>
 
 int db_open(const char *file);
 void db_close();
 
 const char *db_error();
 
-typedef struct sqlite3 sqlite3;
 sqlite3 *db_handle();
 
 void db_simple_exec(const char *sql, int *error);
