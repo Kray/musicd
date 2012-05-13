@@ -19,6 +19,7 @@
 
 #include "log.h"
 
+#include <ctype.h>
 #include <iconv.h>
 #include <stdarg.h>
 #include <stdio.h>
