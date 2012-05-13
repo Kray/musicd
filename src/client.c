@@ -20,6 +20,7 @@
 #include "library.h"
 #include "log.h"
 #include "server.h"
+#include "strings.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -103,20 +104,20 @@ static char *get_str(char *src, const char *key)
   return NULL;
 }
 
-static int get_int(char *src, const char *key)
+static int64_t get_int(char *src, const char *key)
 {
-  int result;
-  char search[strlen(key) + 4];
-  snprintf(search, strlen(key) + 4, "%s=%%i", key);
-  
+  int64_t result = 0;
+  char *search;
+  search = stringf("%s=%%ld", key);
   for (; *src != '\n' && *src != '\0';) {
     if (sscanf(src, search, &result)) {
-      return result;
+      break;
     }
     for (; *src != '\n' && (*src + 1) != '\0'; ++src) { }
     ++src;
   }
-  return 0;
+  free(search);
+  return result;
 }
 
 static int client_error(client_t *client, const char *code)
