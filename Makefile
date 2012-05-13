@@ -10,6 +10,7 @@ SRCS =  src/client.c \
 	src/scan.c \
 	src/server.c \
 	src/stream.c \
+	src/strings.c \
 	src/track.c \
 	src/transcoder.c
 
