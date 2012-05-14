@@ -6,6 +6,7 @@ SRCS =  src/client.c \
 	src/libav.c \
 	src/library.c \
 	src/log.c \
+	src/lyrics.c \
 	src/musicd.c \
 	src/scan.c \
 	src/server.c \
