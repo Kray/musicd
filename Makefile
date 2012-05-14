@@ -11,6 +11,7 @@ SRCS =  src/client.c \
 	src/server.c \
 	src/stream.c \
 	src/strings.c \
+	src/task.c \
 	src/track.c \
 	src/transcoder.c \
 	src/url.c
