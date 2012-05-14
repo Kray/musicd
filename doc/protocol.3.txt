@@ -22,7 +22,7 @@ key=value1,value2
 
 
 Definition format
-==========
+=================
 This specification uses following syntax for defining different message types:
 
 messagetype (sender)
@@ -30,6 +30,7 @@ key1 type1 keywords1
 key2 type2 keywords2
 
 Keyword "required" is self-explanatory.
+Keyword "status" is described later.
 
 Following types are used:
 * string
@@ -64,6 +65,26 @@ name string
 
 In error condition, the server is not required to give the client any normal
 reply to the message that triggered the error.
+
+
+Pseudo-asynchronous messages
+============================
+The protocol itself is designed to be trivial to implement, and identifiers or
+other methods to achieve asynchronousity aren't compatible with this goal.
+However, there are situations where the server is requested something it does
+not YET have, such as metadata fetched from external sources on-demand if not
+already stored in the database. In these situations, the server may return no
+data, but instead notify the client that the data MIGHT be available later.
+
+If a property is defined with keyword "status", absence of the property means
+that property "status" in the message describes why the property is absent.
+Following values for status property are valid:
+* retry
+  The data isn't currently available but will be checked, and the client should
+  request it again later. Five seconds or so should be a reasonable interval.
+* unavailable
+  The data is not available and this situation will not change in the near
+  future.
 
 
 Initiating session
@@ -172,4 +193,14 @@ seek (server)
 [none]
 
 Seeks currently open track to position seconds from beginning of the track.
+
+
+lyrics (client)
+track id required
+
+lyrics (server)
+lyrics bytes status
+
+Returns lyrics for requested track.
+
 

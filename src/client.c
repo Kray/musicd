@@ -19,8 +19,10 @@
 #include "config.h"
 #include "library.h"
 #include "log.h"
+#include "lyrics.h"
 #include "server.h"
 #include "strings.h"
+#include "task.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -297,6 +299,27 @@ static int method_seek(client_t *client, char *p)
   return 0;
 }
 
+static int method_lyrics(client_t *client, char *p)
+{
+  char *lyrics;
+  time_t ltime = 0;
+  int64_t id = get_int(p, "track");
+  
+  lyrics = library_lyrics(id, &ltime);
+  if (!lyrics) {
+    if (ltime < (time(NULL) - 24 * 60 * 60)) {
+      task_launch(lyrics_task, (void *)id);
+      client_send(client, "lyrics\nstatus=retry\n\n");
+    } else {
+      client_send(client, "lyrics\nstatus=unavailable\n\n");
+    }
+  } else {
+    client_send(client, "lyrics\nlyrics:=%d\n\n%s", strlen(lyrics), lyrics);
+  }
+  
+  return 0;
+}
+
 struct method_entry {
   const char *name;
   int (*handler)(client_t *client, char *p);
@@ -307,6 +330,7 @@ static struct method_entry methods[] = {
   { "randomid", method_randomid },
   { "open", method_open },
   { "seek", method_seek },
+  { "lyrics", method_lyrics },
   { NULL, NULL }
 };
 
