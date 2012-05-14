@@ -165,12 +165,18 @@ static int create_schema()
     db_simple_exec("CREATE TABLE images (url INT64, album INT64)", &error);
   }
   
+  if (schema < 2) {
+    musicd_log(LOG_INFO, "db", "upgrade to schema 2");
+    db_simple_exec("CREATE TABLE lyrics (track INT64, lyrics TEXT, source TEXT, mtime INT64)", &error);
+    db_simple_exec("CREATE UNIQUE INDEX lyrics_index ON lyrics(track)", &error);
+  }
+  
   if (error) {
     musicd_log(LOG_ERROR, "db", "can't create database tables");
     return -1;
   }
   
-  db_meta_set_int("schema", 1);
+  db_meta_set_int("schema", 2);
   
   if (error) {
     musicd_log(LOG_ERROR, "db", "can't create schema");

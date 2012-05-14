@@ -130,6 +130,20 @@ int64_t library_album_by_directory(int64_t directory);
 void library_image_album_set_by_directory(int64_t directory, int64_t album);
 
 
+
+/**
+ * @Returns lyrics of @p track or NULL if not found.
+ * If @p time is not NULL, *time will be set to lyricstime of @p track
+ */
+char *library_lyrics(int64_t track, time_t *time);
+
+/**
+ * Sets lyrics of @p track to @p lyrics. Timestamp is automatically modified.
+ */ 
+void library_lyrics_set(int64_t track, char *lyrics);
+
+
+
 typedef struct library_query library_query_t;
 
 typedef enum {

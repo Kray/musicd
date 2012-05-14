@@ -484,6 +484,52 @@ void library_image_album_set_by_directory(int64_t directory, int64_t album)
   execute(query);
 }
 
+char *library_lyrics(int64_t track, time_t *time)
+{
+  static const char *sql =
+    "SELECT lyrics, mtime FROM lyrics WHERE track = ?";
+  sqlite3_stmt *query;
+  int result;
+  
+  if (!prepare_query(sql, &query)) {
+    return NULL;
+  }
+  
+  sqlite3_bind_int64(query, 1, track);
+  
+  result = sqlite3_step(query);
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
+  }
+  if (result == SQLITE_ROW) {
+    if (time) {
+      *time = sqlite3_column_int64(query, 1);
+    }
+    if (sqlite3_column_text(query, 0)) {
+      return strdup((const char *)sqlite3_column_text(query, 0));
+    }
+  }
+  return NULL;
+}
+
+void library_lyrics_set(int64_t track, char *lyrics)
+{
+  static const char *sql =
+    "INSERT OR REPLACE INTO lyrics (track, lyrics, mtime) VALUES(?, ?, ?)";
+  sqlite3_stmt *query;
+
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+  
+  sqlite3_bind_int64(query, 1, track);
+  sqlite3_bind_text(query, 2, lyrics, -1, NULL);
+  sqlite3_bind_int64(query, 3, time(NULL));
+  
+  
+  execute(query);
+}
+
 
 struct library_query {
   library_table_t table;
