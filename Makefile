@@ -12,13 +12,14 @@ SRCS =  src/client.c \
 	src/stream.c \
 	src/strings.c \
 	src/track.c \
-	src/transcoder.c
+	src/transcoder.c \
+	src/url.c
 
 DEPS = $(SRCS)
 
 CFLAGS += -g -Wall -Wextra
 
-LIBS = -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage
+LIBS = -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
 
 PREFIX ?= /usr/local
 
