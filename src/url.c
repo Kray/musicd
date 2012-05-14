@@ -74,9 +74,10 @@ char *url_fetch(const char *url)
   if (result) {
     musicd_log(LOG_ERROR, "url", "fetching '%s' failed: %s", url, errorbuf);
     free(data.data);
-    return NULL;
+    data.data = NULL;
   }
   
+  curl_easy_cleanup(curl);
   return data.data;
 }
 
