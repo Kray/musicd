@@ -23,6 +23,7 @@
 #include "log.h"
 #include "scan.h"
 #include "server.h"
+#include "strings.h"
 #include "track.h"
 
 #include <stdlib.h>
@@ -34,14 +35,15 @@ void print_usage(char *arg0)
 {
   printf("Usage:\n");
   printf("  %s [CONFIG...] [OPTION]\n\n", arg0);
-  printf("musicd, a daemon for indexing and streaming music.\n\n");
+  printf("musicd, music collection indexing and streaming daemon\n\n");
   printf("Configuration:\n");
   printf("  --config <PATH>\tConfiguration file path. Default is "
          "~/.musicd/musicd.conf\n\n");
-  printf("  --no-config <BOOL>\tIf set to true, no config file is attempted "
-         "to read.\n\n");
+  printf("  --no-config <BOOL>\tIf set to true, no config file is tried to "
+         "read\n\n");
   printf("  Any configuration option can be passed in format --key value.\n");
-  printf("  Refer to doc/musicd.conf on configuration options.\n\n");
+  printf("  Refer to man page or doc/musicd.conf on configuration options."
+         "\n\n");
   printf("Trailing option:\n");
   printf("  --help\tShow this help and exit.\n");
   printf("  --version\tPrint version.\n");
@@ -60,54 +62,56 @@ void print_version()
 }
 
 /**
- * Create ~/.musicd/ and ~/.musicd/musicd.conf
+ * Hook on "directory" config change. Sets db-file and cache to be inside the
+ * directory.
  */
-static void create_default_paths()
+static void directory_changed(char *directory)
 {
-  char *home, *path;
-  struct stat status;
-  FILE *file;
-  
-  home = getenv("HOME");
-  if (!home) {
-    musicd_log(LOG_ERROR, "main", "$HOME not set");
-    return;
-  }
-  
-  path = malloc(strlen(home) + 20 + 1);
-  
-  sprintf(path, "%s/.musicd/", home);
-  if (stat(path, &status)) {
-    if (mkdir(path, 0777)) {
-      musicd_perror(LOG_ERROR, "main", "could not create directory %s", path);
-      goto exit;
-    }
-  }
-  
-  sprintf(path, "%s/.musicd/musicd.conf", home);
-  if (stat(path, &status)) {
-    file = fopen(path, "w");
-    if (!file) {
-      musicd_perror(LOG_ERROR, "main", "could not create file %s", path);
-      goto exit;
-    }
-    fprintf(file,"# See man musicd or example musicd.conf distributed with "
-                 "musicd.\n");
-    fclose(file);
-  }
-  
-exit:
+  char *path;
+  directory = config_to_path("directory");
+  path = stringf("%s/musicd.db", directory);
+  config_set("db-file", path);
   free(path);
+  path = stringf("%s/cache", directory);
+  config_set("cache-dir", path);
+  free(path);
+}
+
+/**
+ * Check if "db-file" or "cache" begin with "directory". If this is the case
+ * ensure "directory" exists.
+ */
+static void confirm_directory()
+{
+  const char *directory = config_to_path("directory");
+  int directory_len = strlen(directory);
+  const char *db_file = config_to_path("db-file");
+  const char *cache = config_to_path("cache");
+  struct stat status;
+  
+  if (!strncmp(directory, db_file, directory_len)
+   || !strncmp(directory, cache, directory_len)) {
+    if (stat(directory, &status)) {
+      if (mkdir(directory, 0777)) {
+        musicd_perror(LOG_ERROR, "main", "could not create directory %s", 
+                      directory);
+      }
+    }
+  }
 }
 
 int main(int argc, char* argv[])
 { 
   config_init();
-  /*config_set("log-level", "debug");*/
+
   config_set_hook("log-level", log_level_changed);
   config_set_hook("log-time-format", log_time_format_changed);
-  config_set("config", "~/.musicd/musicd.conf");
-  config_set("db-file", "~/.musicd/musicd.db");
+  /*config_set("log-level", "debug");*/
+
+  config_set_hook("directory", directory_changed);
+  
+  config_set("config", "~/.musicd.conf");
+  config_set("directory", "~/.musicd");
   config_set("bind", "any");
   config_set("port", "6800");
   
@@ -126,17 +130,17 @@ int main(int argc, char* argv[])
     return 0;
   }
   
-  create_default_paths();
-  
   if (!config_to_bool("no-config")
    && config_load_file(config_to_path("config"))) {
     musicd_log(LOG_FATAL, "main", "could not read config file");
     return -1;
   }
   
-  /* Reload command line arguments - this is because config file might have
-   * overwritten them, and command line has the highest priority. */
+  /* Reload command line arguments - this is because the config file might have
+   * overwritten them, and the command line has the highest priority. */
   config_load_args(argc, argv);
+  
+  confirm_directory();
   
   musicd_log(LOG_INFO, "main", "musicd version %s", MUSICD_VERSION_STRING);
   

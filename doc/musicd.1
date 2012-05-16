@@ -1,7 +1,7 @@
 .TH "Music Daemon" 1
 
 .SH NAME
-musicd \- a daemon for indexing and streaming music.
+musicd, music collection indexing and streaming daemon
 
 .SH SYNOPSIS
 musicd [CONFIG...] [OPTION]
@@ -18,24 +18,49 @@ If set to true, no config file is attempted to read.
 
 .SH Configuration
 
-These options are essentially same that can be set in configuration file. Refer
-to doc/musicd.conf for more details.
+These options are essentially the same that can be set in configuration file.
+Refer to doc/musicd.conf for more details.
 
-.IP --music-directory
-Directory where musicd scans for music.
-.IP --db-file
-Path where musicd saves its database.
-.IP --bind
-Interface or Unix socket where bind to.
-.IP --port
-Port of interface where bind to.
-.IP --log-level
-Maximum verbosity of log messages. Valid values are fatal, error, warning,
-info, verbose, debug and default. The default is info.
-.IP --user
-User name for accessing the daemon. Only one can currently be specified.
-.IP --password
-Password for the user.
+.IP --music-directory <PATH>
+The directory where musicd will search music from.
+
+.IP --directory <PATH>
+Sets db-file to directory/musicd.db and cache-dir to directory/cache
+If the directory doesn't exist, the daemon tries creating it, otherwise RW
+access is needed.
+The default value is ~/.musicd
+
+.IP --db-file <PATH>
+Database file location. The directory must exist and the daemon must have RW
+access there.
+
+.IP --cache-dir <PATH>
+Location of cache directory. The directory must exist and the daemon must
+have RW access there.
+
+.IP --bind <INTERFACE>
+Defines where the daemon will bind. Valid values are 'any', IP address or
+path to a unix socket.
+The default value is 'any'.
+
+.IP --port <PORT>
+The TCP port daemon will bind to if bind is not set to a unix socket.
+The default value is 6800.
+
+.IP --log-level <LEVEL>
+Maximum verbosity of printed log messages. Valid values are fatal, error,
+warning, info, verbose, debug and default.
+The default level is info.
+
+.IP --log-time-format <FORMAT>
+Format of log time stamps. See strftime(3) man page for syntax and options.
+The default format is %H:%M:%S
+
+.IP --user <STRING>
+User name for accessing the daemon
+
+.IP --password <STRING>
+Password for accessing the daemon
 
 .SH TRAILING OPTION
 .IP --help

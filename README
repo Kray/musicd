@@ -1,5 +1,5 @@
-musicd v0.2.0
-=============
+musicd v0.3.0-dev
+=================
 Author: Konsta Kokkinen <kray@tsundere.fi>
 Website: http://tsundere.fi/musicd
 
@@ -16,6 +16,7 @@ Requirements
   * libav (also known as ffmpeg) new enough
   * libsqlite3
   * FreeImage
+  * curl
 
 Copyright
 =========
