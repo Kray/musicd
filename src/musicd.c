@@ -24,7 +24,6 @@
 #include "scan.h"
 #include "server.h"
 #include "strings.h"
-#include "track.h"
 
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -84,13 +83,13 @@ static void directory_changed(char *directory)
 static void confirm_directory()
 {
   const char *directory = config_to_path("directory");
-  int directory_len = strlen(directory);
+  int dir_len = strlen(directory);
   const char *db_file = config_to_path("db-file");
-  const char *cache = config_to_path("cache");
+  const char *cache_dir = config_to_path("cache-dir");
   struct stat status;
   
-  if (!strncmp(directory, db_file, directory_len)
-   || !strncmp(directory, cache, directory_len)) {
+  if ((strlen(db_file) < dir_len || !strncmp(directory, db_file, dir_len))
+   || (strlen(cache_dir) < dir_len || !strncmp(directory, cache_dir, dir_len))) {
     if (stat(directory, &status)) {
       if (mkdir(directory, 0777)) {
         musicd_perror(LOG_ERROR, "main", "could not create directory %s", 
