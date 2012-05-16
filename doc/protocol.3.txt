@@ -87,6 +87,18 @@ Following values for status property are valid:
   future.
 
 
+Formats
+=======
+This informal specification does not state any specific codecs for encoded
+audio data. Without any transcoding it is recommended that the server delivers
+the data as is to prevent any possible quality loss from compression.
+
+Codec names should be their standardized or de facto abbreviations to allow
+smooth interoperability.
+
+Images transferred through the protocol shall be JPEG compressed.
+
+
 Initiating session
 ==================
 When a client connects to a server, the server shall push following message:
