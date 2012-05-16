@@ -4,6 +4,7 @@ SRCS =  src/cache.c \
 	src/cue.c \
 	src/db.c \
 	src/format.c \
+	src/image.c \
 	src/libav.c \
 	src/library.c \
 	src/log.c \
