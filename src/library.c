@@ -416,6 +416,31 @@ int64_t library_image_add(int64_t url)
   return sqlite3_last_insert_rowid(db_handle());
 }
 
+char *library_album_image_path(int64_t album)
+{
+  static const char *sql =
+    "SELECT urls.path AS path FROM images JOIN urls ON images.url = urls.rowid WHERE images.album = ?";
+  sqlite3_stmt *query;
+  int result;
+  char *path = NULL;;
+
+  if (!prepare_query(sql, &query)) {
+    return NULL;
+  }
+
+  sqlite3_bind_int64(query, 1, album);
+
+  result = sqlite3_step(query);
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
+  }
+  if (result == SQLITE_ROW) {
+    path = strdup((const char *)sqlite3_column_text(query, 0));
+  }
+
+  sqlite3_finalize(query);
+  return path;
+}
 
 void library_iterate_images_by_directory
   (int64_t directory, bool (*callback)(library_image_t *url))

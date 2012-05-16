@@ -115,6 +115,13 @@ typedef struct {
   int64_t album;
 } library_image_t;
 
+/**
+ * @Returns path which must be freed or NULL if not found.
+ * @todo Currently just returns first image associated with the album instead
+ * of relying on albums.image because it isn't used yet.
+ */
+char *library_album_image_path(int64_t album);
+
 void library_iterate_images_by_directory
   (int64_t directory, bool (*callback)(library_image_t *image));
 
