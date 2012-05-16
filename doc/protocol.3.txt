@@ -207,6 +207,17 @@ seek (server)
 Seeks currently open track to position seconds from beginning of the track.
 
 
+albumimg (client)
+album id required
+size integer required
+
+albumimg (server)
+image bytes status
+
+Returns album image for requested album scaled to size that fits within square
+of size.
+
+
 lyrics (client)
 track id required
 

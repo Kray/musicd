@@ -15,8 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with Musicd.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "cache.h"
 #include "client.h"
 #include "config.h"
+#include "image.h"
 #include "library.h"
 #include "log.h"
 #include "lyrics.h"
@@ -299,6 +301,51 @@ static int method_seek(client_t *client, char *p)
   return 0;
 }
 
+static int method_albumimg(client_t *client, char *p)
+{
+  int64_t album, size;
+  int data_size;
+  char *name, *cache_name;
+  char *data;
+  image_task_t *task;
+
+  album = get_int(p, "album");
+  size = get_int(p, "size");
+  
+  if (size < 16 || size > 512) {
+    client_error(client, "invalid_size\n\n");
+    return -1;
+  }
+  
+  name = stringf("album%ld", album);
+  cache_name = image_cache_name(name, size);
+  free(name);
+  
+  if (!cache_exists(cache_name)) {
+    task = malloc(sizeof(image_task_t));
+    task->id = album;
+    task->size = size;
+    task_launch(image_album_task, (void *)task);
+    client_send(client, "albumimg\nstatus=retry\n\n");
+    goto exit;
+  }
+  
+  data = cache_get(cache_name, &data_size);
+
+  if (!data) {
+    client_send(client, "albumimg\nstatus=unavailable\n\n");
+    goto exit;
+  }
+  
+  client_send(client, "albumimg\nimage:=%i\n\n", data_size);
+  write(client->fd, data, data_size);
+  free(data);
+
+exit:
+  free(cache_name);
+  return 0;
+}
+
 static int method_lyrics(client_t *client, char *p)
 {
   char *lyrics;
@@ -330,6 +377,7 @@ static struct method_entry methods[] = {
   { "randomid", method_randomid },
   { "open", method_open },
   { "seek", method_seek },
+  { "albumimg", method_albumimg },
   { "lyrics", method_lyrics },
   { NULL, NULL }
 };
