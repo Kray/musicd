@@ -1,4 +1,5 @@
-SRCS =  src/client.c \
+SRCS =  src/cache.c \
+	src/client.c \
 	src/config.c \
 	src/cue.c \
 	src/db.c \

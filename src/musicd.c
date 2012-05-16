@@ -17,6 +17,7 @@
  */
 #include "musicd.h"
 
+#include "cache.h"
 #include "config.h"
 #include "libav.h"
 #include "library.h"
@@ -83,7 +84,7 @@ static void directory_changed(char *directory)
 static void confirm_directory()
 {
   const char *directory = config_to_path("directory");
-  int dir_len = strlen(directory);
+  size_t dir_len = strlen(directory);
   const char *db_file = config_to_path("db-file");
   const char *cache_dir = config_to_path("cache-dir");
   struct stat status;
@@ -150,6 +151,11 @@ int main(int argc, char* argv[])
   
   if (library_open()) {
     musicd_log(LOG_FATAL, "main", "could not open library");
+    return -1;
+  }
+  
+  if (cache_open()) {
+    musicd_log(LOG_FATAL, "main", "could not open cache");
     return -1;
   }
   
