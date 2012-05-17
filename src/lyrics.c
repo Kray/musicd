@@ -29,7 +29,7 @@
  * - start from first hit of "<div class='lyricbox'>"
  * - search until first html entity
  * - start converting entities to utf-32 and <br />s to newlines
- * - if over 24 characters without html entity (allows up to 4 <br />s, for
+ * - if over 48 characters without html entity (allows up to 8 <br />s, for
  *   instance), stop
  */
 static char *parse_lyrics_page(char *page)
@@ -47,7 +47,7 @@ static char *parse_lyrics_page(char *page)
   }
   
   for (; *p != '\0'; ++p) {
-    if (string_size(string) > 0 && gap > 24) {
+    if (string_size(string) > 0 && gap > 48) {
       break;
     }
     
