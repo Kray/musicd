@@ -66,7 +66,7 @@ char *cache_get(const char *name, int *size)
 {
   char *path;
   FILE *file;
-  char *data;
+  char *data = NULL;
   
   if (!cache_exists(name)) {
     return NULL;
@@ -85,9 +85,10 @@ char *cache_get(const char *name, int *size)
   *size = ftell(file);
   fseek(file, 0, SEEK_SET);
   
-  data = malloc(*size);
-  *size = fread(data, 1, *size, file);
-  
+  if (*size > 0) {
+    data = malloc(*size);
+    *size = fread(data, 1, *size, file);
+  }
   fclose(file);
   
   return data;

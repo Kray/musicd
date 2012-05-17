@@ -321,6 +321,14 @@ static int method_albumimg(client_t *client, char *p)
   cache_name = image_cache_name(name, size);
   free(name);
   
+  /* FIXME: Some better way to test this */
+  name = library_album_image_path(album);
+  if (!name) {
+    client_send(client, "albumimg\nstatus=unavailable\n\n");
+    goto exit;
+  }
+  free(name);
+  
   if (!cache_exists(cache_name)) {
     task = malloc(sizeof(image_task_t));
     task->id = album;

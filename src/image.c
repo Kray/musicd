@@ -75,29 +75,27 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
 
 void *image_album_task(void *data)
 {
-  char *buf, *name, *cache_name, *path;
-  int size;
+  char *buf = NULL, *name, *cache_name, *path;
+  int size = 0;
   image_task_t *task = (image_task_t *)data;
-
+  
   /* Round to closest power of two */
   task->size = pow(2, ceil(log(task->size)/log(2)));
-  
-  path = library_album_image_path(task->id);
-  
-  buf = image_create_thumbnail(path, task->size, &size);
-  if (!buf) {
-    free(task);
-    return NULL;
-  }
   
   name = stringf("album%ld", task->id);
   cache_name = image_cache_name(name, task->size);
   free(name);
   
+  path = library_album_image_path(task->id);
+  if (path) {
+    buf = image_create_thumbnail(path, task->size, &size);
+  }
+  
   cache_set(cache_name, buf, size);
   
+  free(path);
+  free(buf);
   free(cache_name);
-  
   free(task);
   return NULL;
 }
