@@ -321,10 +321,8 @@ static int method_albumimg(client_t *client, char *p)
     client_error(client, "invalid_size\n\n");
     return -1;
   }
-  
-  name = stringf("album%ld", album);
-  cache_name = image_cache_name(name, size);
-  free(name);
+
+  cache_name = image_cache_name(album, size);
   
   /* FIXME: Some better way to test this */
   name = library_album_image_path(album);

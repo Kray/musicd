@@ -21,9 +21,9 @@
 #include <stdint.h>
 
 /**
- * @Returns cache name for image tagged with @p name of @p size size.
+ * @Returns cache name for image of id @p image of @p size size.
  */
-char *image_cache_name(const char *name, int size);
+char *image_cache_name(int64_t image, int size);
 
 /**
  * @Returns data of thumbnail of image in @p path which fits in square of size

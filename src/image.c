@@ -28,11 +28,11 @@
 
 #include <FreeImage.h>
 
-char *image_cache_name(const char* name, int size)
+char *image_cache_name(int64_t image, int size)
 { 
   /* Round to closest power of two */
   size = pow(2, ceil(log(size)/log(2)));
-  return stringf("%s_%d.jpg", name, size);
+  return stringf("%lu_%d.jpg", image, size);
 }
 
 
@@ -75,16 +75,14 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
 
 void *image_album_task(void *data)
 {
-  char *buf = NULL, *name, *cache_name, *path;
+  char *buf = NULL, *cache_name, *path;
   int size = 0;
   image_task_t *task = (image_task_t *)data;
   
   /* Round to closest power of two */
   task->size = pow(2, ceil(log(task->size)/log(2)));
   
-  name = stringf("album%ld", task->id);
-  cache_name = image_cache_name(name, task->size);
-  free(name);
+  cache_name = image_cache_name(task->id, task->size);
   
   path = library_album_image_path(task->id);
   if (path) {
