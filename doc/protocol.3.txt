@@ -99,25 +99,21 @@ smooth interoperability.
 Images transferred through the protocol shall be JPEG compressed.
 
 
-Initiating session
-==================
-When a client connects to a server, the server shall push following message:
+Messages
+========
+
+musicd (client)
+protocol integer
 
 musicd (server)
 protocol integer required
 codecs list(string)
 
-Protocol defines protocol version used for communication. Optional property
-codecs defines what codecs the server is able to transcode to on client's
-request.
+Initiates the session. The protocol property may or may not be honored by the
+server, and the protocol version returned by the server is the one used.
+The codecs field, if present, contains codecs supported by the server's
+transcoder. If the field doesn't exist, no transcoding is available.
 
-
-After this the client most likely must authorize itself. After the
-authorization the client can begin sending requests normally.
-
-
-Messages
-========
 
 auth (client)
 user string required

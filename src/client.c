@@ -39,8 +39,6 @@ client_t *client_new(int fd)
   
   result->fd = fd;
   
-  client_send(result, "musicd\nprotocol=3\ncodecs=mp3\n\n");
-  
   return result;
 }
 
@@ -128,6 +126,13 @@ static int client_error(client_t *client, const char *code)
 {
   client_send(client, "error\nname=%s\n\n", code);
   return -1;
+}
+
+
+static int method_musicd(client_t *client, char *p)
+{
+  client_send(client, "musicd\nprotocol=3\ncodecs=mp3\n\n");
+  return 0;
 }
 
 
@@ -401,7 +406,11 @@ static int process_call(client_t *client)
   
   musicd_log(LOG_VERBOSE, "client", "method: '%s'", method);
   
-  /* auth is special case */
+  /* Special cases. */
+  if (!strcmp(method, "musicd")) {
+    result = method_musicd(client, p);
+    goto exit;
+  }
   if (!strcmp(method, "auth")) {
     result = method_auth(client, p);
     goto exit;
