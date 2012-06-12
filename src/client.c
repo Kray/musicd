@@ -49,6 +49,7 @@ void client_close(client_t *client)
   }
   
   close(client->fd);
+  free(client->address);
   free(client->user);
   free(client);
 }
@@ -536,5 +537,6 @@ int client_next_packet(client_t* client)
   return 0;
   
 }
+
 
 

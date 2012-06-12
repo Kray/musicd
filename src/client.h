@@ -28,6 +28,8 @@
 typedef struct client {
   int fd;
   
+  char *address;
+  
   char *buf;
   int buf_size;
   

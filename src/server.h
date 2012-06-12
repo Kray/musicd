@@ -23,7 +23,7 @@
 int server_start();
 int server_stop();
 
-int server_accept();
+client_t *server_accept();
 void server_add_client(client_t *client);
 void server_del_client(client_t *client);
 
