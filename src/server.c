@@ -268,9 +268,8 @@ client_t *server_accept()
   }
   client = client_new(sock);
   client->address = malloc(INET6_ADDRSTRLEN);
-  client->address = 
-    inet_ntop(cli_addr.sin_family, &(cli_addr.sin_addr), client->address,
-              INET6_ADDRSTRLEN);
+  inet_ntop(cli_addr.sin_family, &(cli_addr.sin_addr), client->address,
+            INET6_ADDRSTRLEN);
   server_add_client(client);
   return client;
 }
