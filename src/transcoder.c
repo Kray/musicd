@@ -54,15 +54,15 @@ transcoder_t *transcoder_open(format_t *format, const char *codec, int bitrate)
     return NULL;
   }
   
-  decoder = avcodec_alloc_context();
-  encoder = avcodec_alloc_context();
+  decoder = avcodec_alloc_context3(NULL);
+  encoder = avcodec_alloc_context3(NULL);
   
   decoder->sample_rate = format->samplerate;
   decoder->channels = format->channels;
   decoder->extradata = (uint8_t *)format->extradata;
   decoder->extradata_size = format->extradata_size;
   
-  result = avcodec_open(decoder, codec_in);
+  result = avcodec_open2(decoder, codec_in, NULL);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "could not open decoder: %s",
                strerror(AVUNERROR(result)));
@@ -82,7 +82,7 @@ transcoder_t *transcoder_open(format_t *format, const char *codec, int bitrate)
   
   encoder->bit_rate = bitrate;
   
-  result = avcodec_open(encoder, codec_out);
+  result = avcodec_open2(encoder, codec_out, NULL);
   if (result < 0) {
     musicd_log(LOG_ERROR, "transcoder", "could not open encoder: %s",
                strerror(AVUNERROR(result)));

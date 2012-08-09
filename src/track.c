@@ -57,8 +57,8 @@ track_t *track_from_path(const char *path)
   }
   
   if (avctx->nb_streams < 1 || avctx->duration < 1) {
-    if (av_find_stream_info(avctx) < 0) {
-      av_close_input_file(avctx);
+    if (avformat_find_stream_info(avctx, NULL) < 0) {
+      avformat_close_input(&avctx);
       return NULL;
     }
   }
@@ -66,7 +66,7 @@ track_t *track_from_path(const char *path)
   if (avctx->nb_streams < 1
    || avctx->streams[0]->codec->codec_type != AVMEDIA_TYPE_AUDIO
    || (avctx->duration && avctx->streams[0]->duration < 1)) {
-    av_close_input_file(avctx);
+    avformat_close_input(&avctx);
     return NULL;
   }
   
@@ -126,7 +126,7 @@ track_t *track_from_path(const char *path)
     track->track, track->title, track->artist, track->album,
     track->albumartist, track->duration);*/
   
-  av_close_input_file(avctx);
+  avformat_close_input(&avctx);
   return track;
 }
 

@@ -49,21 +49,21 @@ stream_t *stream_open(track_t *track)
     return NULL;
   }
   
-  if (av_find_stream_info(avctx) < 0) {
-    av_close_input_file(avctx);
+  if (avformat_find_stream_info(avctx, NULL) < 0) {
+    avformat_close_input(&avctx);
     return NULL;
   }
   
   if (avctx->nb_streams < 1
    || avctx->streams[0]->codec->codec_type != AVMEDIA_TYPE_AUDIO
    || (avctx->duration < 1 && avctx->streams[0]->duration < 1)) {
-    av_close_input_file(avctx);
+    avformat_close_input(&avctx);
     return NULL;
   }
   
   codec = avcodec_find_decoder(avctx->streams[0]->codec->codec_id);
   if (!codec) {
-    av_close_input_file(avctx);
+    avformat_close_input(&avctx);
     return NULL;
   }
   
@@ -105,7 +105,7 @@ void stream_close(stream_t *stream)
     return;
   }
   transcoder_close(stream->transcoder);
-  av_close_input_file(stream->avctx);
+  avformat_close_input(&stream->avctx);
   free(stream);
 }
 
