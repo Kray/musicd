@@ -567,9 +567,9 @@ library_query_t *library_search
 {
   (void) table; (void) field;
   sqlite3_stmt *result;
-  
+
   static const char *q_track_all =
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
+    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
   
   /*static const char *q_track_title = 
     "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE COALESCE(tracks.title, '') LIKE ?";
@@ -603,7 +603,7 @@ library_query_t *library_search
   
   sqlite3_bind_text(result, 1, search, -1, NULL);
   
-  return (library_query_t*)result;
+  return (library_query_t *)result;
 }
 
 int library_query_next(library_query_t *query, track_t* track)
@@ -621,14 +621,16 @@ int library_query_next(library_query_t *query, track_t* track)
     musicd_log(LOG_ERROR, "library", "library_search_next: sqlite3_step failed");
     return -1;
   }
-  
-  track->id = sqlite3_column_int((sqlite3_stmt*)query, 0);
-  track->path = (char*)sqlite3_column_text((sqlite3_stmt*)query, 1);
-  track->track = sqlite3_column_int((sqlite3_stmt*)query, 2);
-  track->title = (char*)sqlite3_column_text((sqlite3_stmt*)query, 3);
-  track->artist = (char*)sqlite3_column_text((sqlite3_stmt*)query, 4);
-  track->album = (char*)sqlite3_column_text((sqlite3_stmt*)query, 5);
-  track->duration = sqlite3_column_int((sqlite3_stmt*)query, 6);
+
+  track->id = sqlite3_column_int64((sqlite3_stmt *)query, 0);
+  track->path = (char *)sqlite3_column_text((sqlite3_stmt*)query, 1);
+  track->track = sqlite3_column_int((sqlite3_stmt *)query, 2);
+  track->title = (char *)sqlite3_column_text((sqlite3_stmt *)query, 3);
+  track->artistid = sqlite3_column_int64((sqlite3_stmt *)query, 4);
+  track->artist = (char *)sqlite3_column_text((sqlite3_stmt *)query, 5);
+  track->albumid = sqlite3_column_int64((sqlite3_stmt *)query, 6);
+  track->album = (char *)sqlite3_column_text((sqlite3_stmt*)query, 7);
+  track->duration = sqlite3_column_int((sqlite3_stmt *)query, 8);
   return 0;
 }
 
@@ -671,14 +673,14 @@ track_t *library_track_by_id(int64_t id)
   }
   
   track = track_new();
-  track->id = sqlite3_column_int(stmt, 0);
-  track->path = dup_or_empty((const char*)sqlite3_column_text(stmt, 1));
+  track->id = sqlite3_column_int64(stmt, 0);
+  track->path = dup_or_empty((const char *)sqlite3_column_text(stmt, 1));
   track->track = sqlite3_column_int(stmt, 2);
-  track->title = dup_or_empty((const char*)sqlite3_column_text(stmt, 3));
-  track->artistid = sqlite3_column_int(stmt, 4);
-  track->artist = dup_or_empty((const char*)sqlite3_column_text(stmt, 5));
-  track->albumid = sqlite3_column_int(stmt, 6);
-  track->album = dup_or_empty((const char*)sqlite3_column_text(stmt, 7));
+  track->title = dup_or_empty((const char *)sqlite3_column_text(stmt, 3));
+  track->artistid = sqlite3_column_int64(stmt, 4);
+  track->artist = dup_or_empty((const char *)sqlite3_column_text(stmt, 5));
+  track->albumid = sqlite3_column_int64(stmt, 6);
+  track->album = dup_or_empty((const char *)sqlite3_column_text(stmt, 7));
   track->start = sqlite3_column_int(stmt, 8);
   track->duration = sqlite3_column_int(stmt, 9);
   
