@@ -83,10 +83,13 @@ size_t string_size(string_t *string)
 
 void string_append(string_t *string, const char *string2)
 {
-  size_t addlen, newlen;
-  
-  
-  addlen = strlen(string2);
+  string_nappend(string, string2, strlen(string2));
+}
+
+void string_nappend(string_t *string, const char *string2, size_t addlen)
+{
+  size_t newlen;
+
   newlen = string->size + addlen;
   
   string_ensure_space(string, newlen);
