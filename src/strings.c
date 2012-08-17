@@ -19,6 +19,7 @@
 
 #include "log.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <iconv.h>
 #include <stdarg.h>
@@ -105,6 +106,15 @@ void string_push_back(string_t *string, char c)
 {
   string_ensure_space(string, string->size + 1);
   string->string[string->size++] = c;
+  string->string[string->size] = '\0';
+}
+
+void string_remove_front(string_t *string, size_t n)
+{
+  assert(string->size >= n);
+
+  string->size -= n;
+  memmove(string->string, string->string + n, string->size);
   string->string[string->size] = '\0';
 }
 

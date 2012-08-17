@@ -51,6 +51,8 @@ void string_nappend(string_t *string, const char *string2, size_t n);
 
 void string_push_back(string_t *string, char c);
 
+void string_remove_front(string_t *string, size_t n);
+
 string_t *string_iconv(string_t *string, const char *to, const char *from);
 
 /** Like printf, but returns string instead of outputting it. Return value
