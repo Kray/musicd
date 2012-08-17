@@ -62,4 +62,7 @@ char *stringf(const char *format, ...);
 /** Case-insensitive strstr. */
 const char *strcasestr(const char *haystack, const char *needle);
 
+/** Tests if @p string begins with @p what. */
+int strbeginswith(const char *string, const char *what);
+
 #endif

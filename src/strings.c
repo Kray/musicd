@@ -194,3 +194,14 @@ const char *strcasestr(const char *haystack, const char *needle)
   return NULL;
 }
 
+int strbeginswith(const char *string, const char *what)
+{
+  size_t string_len = strlen(string), what_len = strlen(what);
+
+  if (string_len < what_len) {
+    return 0;
+  }
+
+  return !strncmp(string, what, what_len);
+}
+
