@@ -96,7 +96,7 @@ track_t *track_from_path(const char *path)
   if (!track->title) {
     /* No title in metadata, use plain filename (no basename, it's crap). */
     for (tmp = (char *)path + strlen(path);
-         tmp >= path && *(tmp - 1) != '/';
+         tmp > path && *(tmp - 1) != '/';
          --tmp) { }
     track->title = strdup(tmp);
   }
