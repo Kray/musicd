@@ -126,7 +126,7 @@ static int server_bind_tcp(const char *address)
 {
   struct sockaddr_in sockaddr;
   struct hostent *host;
-  int port;
+  int port, value;
   
   port = config_to_int("port");
   
@@ -135,6 +135,11 @@ static int server_bind_tcp(const char *address)
     musicd_perror(LOG_ERROR, "server", "can't open socket");
     return -1;
   }
+  
+  /* Reuse the address even if it is in TIME_WAIT state */
+  value = 1;
+  setsockopt(master_sock, SOL_SOCKET, SO_REUSEADDR,
+             (void *)&value, sizeof(value));
   
   if (!address) {
     sockaddr.sin_addr.s_addr = INADDR_ANY;
