@@ -26,9 +26,6 @@
 #include <string.h>
 #include <time.h>
 
-const char *log_prefix[] = 
-  { "FATAL", "ERROR", "Warning", "Info", "Verbose", "Debug" };
-
 int log_level = LOG_INFO;
 const char *log_time_format = "%H:%M:%S";
 
@@ -51,7 +48,7 @@ static void print
     fprintf(stderr, "\033[0;1;41m");
   }
   
-  fprintf(stderr, "%s:[%s]:%s: ", timestr, log_prefix[level], subsys);
+  fprintf(stderr, "%s [%s] ", timestr, subsys);
   vfprintf(stderr, fmt, va_args);
   
   if (level <= LOG_ERROR) {
