@@ -93,6 +93,14 @@ track_t *track_from_path(const char *path)
     track->title = copy_av_dict_value(avctx->streams[0]->metadata, "title");
   }
   
+  if (!track->title) {
+    /* No title in metadata, use plain filename (no basename, it's crap). */
+    for (tmp = (char *)path + strlen(path);
+         tmp >= path && *(tmp - 1) != '/';
+         --tmp) { }
+    track->title = strdup(tmp);
+  }
+
   track->artist = copy_av_dict_value(avctx->metadata, "artist");
   if (!track->artist) {
     track->artist = copy_av_dict_value(avctx->streams[0]->metadata, "artist");
