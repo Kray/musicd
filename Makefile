@@ -14,6 +14,8 @@ SRCS =  src/cache.c \
 	src/server.c \
 	src/stream.c \
 	src/strings.c \
+	src/protocol_musicd.c \
+	src/protocol.c \
 	src/task.c \
 	src/track.c \
 	src/transcoder.c \

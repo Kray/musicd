@@ -22,6 +22,7 @@
 #include "log.h"
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netdb.h> 
 #include <pthread.h>
@@ -53,15 +54,14 @@ static void build_pollfds()
   poll_nfds = nb_clients + 1;
   poll_fds = calloc(poll_nfds, sizeof(struct pollfd));
   
-  poll_fds[0].fd = master_sock;
-  poll_fds[0].events = POLLIN; 
-  
   TAILQ_FOREACH(client, &clients, clients) {
-    poll_fds[i + 1].fd = client->fd;
-    poll_fds[i + 1].events = POLLIN;
+    poll_fds[i].fd = client->fd;
+    poll_fds[i].events = POLLIN;
     ++i;
   }
   
+  poll_fds[i].fd = master_sock;
+  poll_fds[i].events = POLLIN;
 }
 
 static client_t *find_client(int i) {
@@ -84,6 +84,7 @@ static void *thread_func(void *data)
   
   while (1) {
     n = poll(poll_fds, poll_nfds, -1);
+
     if (n == -1) {
       musicd_perror(LOG_ERROR, "server", "can't poll socket(s)");
       continue;
@@ -93,42 +94,27 @@ static void *thread_func(void *data)
       continue;
     }
     
-    if (poll_fds[0].revents & POLLIN) {
+    if (poll_fds[nb_clients].revents & POLLIN) {
       if (!(client = server_accept())) {
         continue;
       }
       musicd_log(LOG_INFO, "server", "new client from %s", client->address);
     }
-    
-    /* Go through all clients. If...
-     * - incoming data: process data from client.
-     *   - if client has track open, start polling POLLOUT too
-     * - can write to socket: write next packet from stream.
-     *   - if no track is open now, stop polling POLLOUT
-     */
-    /**
-     * @todo FIXME Separate logic for handling pushing data to the client.
-     */
+
     for (i = 0; i < nb_clients; ++i) {
       client = find_client(i);
-      if (poll_fds[i + 1].revents & POLLIN) {
-        if (client_process(client) == 1) {
+      if (poll_fds[i].revents & POLLIN
+       || poll_fds[i].revents & POLLOUT) {
+        if (client_process(client)) {
           musicd_log(LOG_INFO, "server", "client from %s disconnected",
                      client->address);
           server_del_client(client);
           break; /* Break, because poll_fds has changed. */
         }
 
-        if (client->stream && client->stream->at_end == 0) {
-          poll_fds[i + 1].events = POLLIN | POLLOUT;
-        }
-        
-      } else if (poll_fds[i + 1].revents & POLLOUT) {
-        if (client->stream && client->stream->at_end == 0) {
-          client_next_packet(client);
-        }
-        if (!client->stream || client->stream->at_end == 1) {
-          poll_fds[i + 1].events = POLLIN;
+        poll_fds[i].events = POLLIN;
+        if (client_has_data(client)) {
+          poll_fds[i].events = POLLOUT;
         }
       }
     }
@@ -257,17 +243,24 @@ int server_start()
 
 client_t *server_accept()
 {
-  int sock;
+  int fd, flags;
   struct sockaddr_in cli_addr;
   socklen_t clilen = sizeof(struct sockaddr_in);
   client_t *client;
-  sock = accept(master_sock, (struct sockaddr *)&cli_addr, &clilen);
-  if (sock < 0) {
+
+  fd = accept(master_sock, (struct sockaddr *)&cli_addr, &clilen);
+  if (fd < 0) {
     musicd_perror(LOG_ERROR, "server", "can't accept incoming connection");
+    abort();
     return NULL;
   }
-  client = client_new(sock);
+
+  flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+  client = client_new(fd);
   client->address = malloc(INET6_ADDRSTRLEN);
+  client->address[0] = '\0';
   inet_ntop(cli_addr.sin_family, &(cli_addr.sin_addr), client->address,
             INET6_ADDRSTRLEN);
   server_add_client(client);

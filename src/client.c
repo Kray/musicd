@@ -26,457 +26,153 @@
 #include "strings.h"
 #include "task.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+
+static int read_data(client_t *client)
+{
+  char buffer[1025];
+  int n;
+
+  n = read(client->fd, buffer, 1024);
+  if (n == 0) {
+    musicd_log(LOG_INFO, "client", "%s: exiting", client->address);
+    return -1;
+  }
+  if (n < 0) {
+    if (errno == EWOULDBLOCK) {
+      /* No data available right now, ignore */
+      return 0;
+    }
+
+    musicd_perror(LOG_INFO, "client", "%s: can't read", client->address);
+    return -1;
+  }
+
+  string_nappend(client->inbuf, buffer, n);
+
+  return n;
+}
+
+
+static int write_data(client_t *client)
+{
+  int n;
+  
+  n = write(client->fd, string_string(client->outbuf), string_size(client->outbuf));
+  if (n < 0) {
+    if (errno == EWOULDBLOCK) {
+      /* It would block right now, ignore */
+      return 0;
+    }
+
+    musicd_perror(LOG_INFO, "client", "%s: can't write data", client->address);
+    return -1;
+  }
+
+  string_remove_front(client->outbuf, n);
+
+  return 0;
+}
+
+
+static void find_protocol(client_t *client)
+{
+  protocol_t **protocol;
+
+  for (protocol = protocols; *protocol != NULL; ++protocol) {
+    if ((*protocol)->detect(string_string(client->inbuf),
+                            string_size(client->inbuf)) == 1) {
+      break;
+    }
+  }
+  client->protocol = *protocol;
+}
+
 client_t *client_new(int fd)
 {
-  client_t* result = malloc(sizeof(client_t));
+  client_t *result = malloc(sizeof(client_t));
   memset(result, 0, sizeof(client_t));
-  
+
   result->fd = fd;
-  
+  result->inbuf = string_new();
+  result->outbuf = string_new();
+
   return result;
 }
 
 void client_close(client_t *client)
 {
-  if (client->stream) {
-    stream_close(client->stream);
-  }
-  
   close(client->fd);
   free(client->address);
-  free(client->user);
+  string_free(client->inbuf);
+  string_free(client->outbuf);
   free(client);
-}
-
-void client_send_track(client_t *client, track_t* track)
-{
-  client_send(client, "track\n");
-  client_send(client, "id=%lu\n", track->id);
-  client_send(client, "path=%s\n", track->path);
-  client_send(client, "track=%i\n", track->track);
-  client_send(client, "title=%s\n", track->title);
-  client_send(client, "artistid=%lu\n", track->artistid);
-  client_send(client, "artist=%s\n", track->artist);
-  client_send(client, "albumid=%lu\n", track->albumid);
-  client_send(client, "album=%s\n", track->album);
-  client_send(client, "duration=%i\n", track->duration);
-  client_send(client, "\n");
-}
-
-
-static char *line_read(char **string)
-{
-  char *result, *begin = *string;
-  for (; **string != '\n' && **string != '\0'; ++(*string)) { }
-  result = malloc(*string - begin + 1);
-  strncpy(result, begin, *string - begin);
-  result[*string - begin] = '\0';
-  ++*string;
-  return result;
-}
-
-static char *get_str(char *src, const char *key)
-{
-  char *end, *result;
-  char search[strlen(key) + 2];
-  snprintf(search, strlen(key) + 2, "%s=", key);
-  
-  for (; *src != '\n' && *src != '\0';) {
-    if (!strncmp(src, search, strlen(key) + 1)) {
-
-      for (; *src != '='; ++src) { }
-      ++src;
-      for (end = src; *end != '\n' && *end != '\0'; ++end) { }
-
-      result = malloc(end - src + 1);
-      strncpy(result, src, end - src);
-      result[end - src] = '\0';
-
-      return result;
-    }
-    
-    for (; *src != '\n' && (*src + 1) != '\0'; ++src) { }
-    ++src;
-  }
-  return NULL;
-}
-
-static int64_t get_int(char *src, const char *key)
-{
-  int64_t result = 0;
-  char *search;
-  search = stringf("%s=%%ld", key);
-  for (; *src != '\n' && *src != '\0';) {
-    if (sscanf(src, search, &result)) {
-      break;
-    }
-    for (; *src != '\n' && (*src + 1) != '\0'; ++src) { }
-    ++src;
-  }
-  free(search);
-  return result;
-}
-
-static int client_error(client_t *client, const char *code)
-{
-  client_send(client, "error\nname=%s\n\n", code);
-  return -1;
-}
-
-
-static int method_musicd(client_t *client, char *p)
-{
-  client_send(client, "musicd\nprotocol=3\ncodecs=mp3\n\n");
-  return 0;
-}
-
-
-static int method_auth(client_t *client, char *p)
-{
-  char *user, *pass;
-  
-  user = get_str(p, "user");
-  pass = get_str(p, "password");
-  
-  /*musicd_log(LOG_DEBUG, "client", "%s %s", user, pass);*/
-  
-  if (!user || strcmp(user, config_get("user"))
-   || !pass || strcmp(pass, config_get("password"))) {
-    free(user);
-    free(pass);
-    return client_error(client, "invalid_login");
-  }
-  
-  client->user = user;
-  
-  free(pass);
-  
-  client_send(client, "auth\n\n");
-  return 0;
-}
-
-
-static int method_search(client_t *client, char *p)
-{
-  char *search, *needle;
-  library_query_t *query;
-  track_t track;
-  
-  search = get_str(p, "query");
-  
-  /*if (!search) {
-    client_error(client, "no_query");
-    return 0;
-  }*/
-  
-  needle = malloc(strlen(search) + 2 + 1);
-  
-  sprintf(needle, "%%%s%%", search);
-  
-  free(search);
-  
-  query = library_search(LIBRARY_TABLE_TRACKS, LIBRARY_FIELD_NONE, needle);
-  if (!query) {
-    musicd_log(LOG_ERROR, "client", "no query returned for search '%s'",
-               needle);
-  }
-  
-  while (!library_query_next(query, &track)) {
-    client_send_track(client, &track);
-  }
-  
-  library_query_close(query);
-  
-  free(needle);
-  
-  client_send(client, "search\n\n");
-  return 0;
-}
-
-static int method_randomid(client_t *client, char *p)
-{
-  (void)p;
-  int64_t id;
-  id = library_randomid();
-  
-  client_send(client, "randomid\nid=%li\n\n", id);
-  return 0;
-}
-
-static int method_open(client_t *client, char *p)
-{
-  track_t *track;
-  int id;
-  char *codec;
-  int bitrate;
-  transcoder_t *transcoder;
-  
-  id = get_int(p, "id");
-  
-  track = library_track_by_id(id);
-  if (!track) {
-    client_error(client, "track_not_found");
-    return -1;
-  }
-  
-  if (client->stream) {
-    stream_close(client->stream);
-  }
-  
-  client->stream = stream_open(track);
-  if (!client->stream) {
-    client_error(client, "cannot_open");
-    return -1;
-  }
-  
-  codec = get_str(p, "codec");
-  if (codec) {
-    bitrate = get_int(p, "bitrate");
-    /* No sense in re-encoding to same codec. */
-    if (strcmp(codec, client->stream->format->codec)) {
-      transcoder =
-        transcoder_open(&client->stream->src_format, codec, bitrate);
-      if (transcoder) {
-        stream_set_transcoder(client->stream, transcoder);
-      }
-    }
-  }
-  
-  client_send_track(client, track);
-  
-  client_send(client, "open\n");
-  client_send(client, "codec=%s\n", client->stream->format->codec);
-  client_send(client, "samplerate=%i\n", client->stream->format->samplerate);
-  client_send(client, "bitspersample=%i\n",
-              client->stream->format->bitspersample);
-  client_send(client, "channels=%i\n", client->stream->format->channels);
-  
-  /* Replay gain */
-  if (client->stream->replay_track_gain != 0.0) {
-    client_send(client, "replaytrackgain=%f\n", client->stream->replay_track_gain);  
-  }
-  if (client->stream->replay_album_gain != 0.0) {
-    client_send(client, "replayalbumgain=%f\n", client->stream->replay_album_gain);
-  }
-  if (client->stream->replay_track_peak != 0.0) {
-    client_send(client, "replaytrackpeak=%f\n", client->stream->replay_track_peak);
-  }
-  if (client->stream->replay_album_peak != 0.0) {
-    client_send(client, "replayalbumpeak=%f\n", client->stream->replay_album_peak);
-  }
-  
-  
-  if (client->stream->format->extradata_size > 0) {
-    client_send(client, "extradata:=%i\n\n", client->stream->format->extradata_size);
-    
-    write(client->fd, client->stream->format->extradata,
-          client->stream->format->extradata_size);
-  } else {
-    client_send(client, "\n");
-  }
-  
-  return 0;
-}
-
-static int method_seek(client_t *client, char *p)
-{
-  int position;
-  int result;
-  
-  if (!client->stream) {
-    client_error(client, "nothing_open");
-    return -1;
-  }
-  
-  position = get_int(p, "position");
-  
-  result = stream_seek(client->stream, position);
-    
-  if (result < 0) {
-    client_error(client, "cannot_seek");
-    return -1;
-  }
-  
-  client_send(client, "seek\n\n");
-  return 0;
-}
-
-static int method_albumimg(client_t *client, char *p)
-{
-  int64_t album, size;
-  int data_size;
-  char *name, *cache_name;
-  char *data;
-  image_task_t *task;
-
-  album = get_int(p, "album");
-  size = get_int(p, "size");
-  
-  if (size < 16 || size > 512) {
-    client_error(client, "invalid_size\n\n");
-    return -1;
-  }
-
-  cache_name = image_cache_name(album, size);
-  
-  /* FIXME: Some better way to test this */
-  name = library_album_image_path(album);
-  if (!name) {
-    client_send(client, "albumimg\nstatus=unavailable\n\n");
-    goto exit;
-  }
-  free(name);
-  
-  if (!cache_exists(cache_name)) {
-    task = malloc(sizeof(image_task_t));
-    task->id = album;
-    task->size = size;
-    task_launch(image_album_task, (void *)task);
-    client_send(client, "albumimg\nstatus=retry\n\n");
-    goto exit;
-  }
-  
-  data = cache_get(cache_name, &data_size);
-
-  if (!data) {
-    client_send(client, "albumimg\nstatus=unavailable\n\n");
-    goto exit;
-  }
-  
-  client_send(client, "albumimg\nimage:=%i\n\n", data_size);
-  write(client->fd, data, data_size);
-  free(data);
-
-exit:
-  free(cache_name);
-  return 0;
-}
-
-static int method_lyrics(client_t *client, char *p)
-{
-  char *lyrics;
-  time_t ltime = 0;
-  int64_t id = get_int(p, "track");
-  
-  lyrics = library_lyrics(id, &ltime);
-  if (!lyrics) {
-    if (ltime < (time(NULL) - 24 * 60 * 60)) {
-      task_launch(lyrics_task, (void *)id);
-      client_send(client, "lyrics\nstatus=retry\n\n");
-    } else {
-      client_send(client, "lyrics\nstatus=unavailable\n\n");
-    }
-  } else {
-    client_send(client, "lyrics\nlyrics:=%d\n\n%s", strlen(lyrics), lyrics);
-  }
-  
-  return 0;
-}
-
-struct method_entry {
-  const char *name;
-  int (*handler)(client_t *client, char *p);
-  /*int flags;*/
-};
-static struct method_entry methods[] = {
-  { "search", method_search },
-  { "randomid", method_randomid },
-  { "open", method_open },
-  { "seek", method_seek },
-  { "albumimg", method_albumimg },
-  { "lyrics", method_lyrics },
-  { NULL, NULL }
-};
-
-static int process_call(client_t *client)
-{
-  char *p = client->buf;
-  char *method;
-  int result;
-  struct method_entry *entry;
-  
-  method = line_read(&p);
-  
-  musicd_log(LOG_VERBOSE, "client", "method: '%s'", method);
-  
-  /* Special cases. */
-  if (!strcmp(method, "musicd")) {
-    result = method_musicd(client, p);
-    goto exit;
-  }
-  if (!strcmp(method, "auth")) {
-    result = method_auth(client, p);
-    goto exit;
-  }
-  
-  if (client->user == NULL) {
-    client_error(client, "unauthorized");
-    goto exit;
-  }
-  
-  for (entry = methods; entry->name != NULL; ++entry) {
-    if (!strcmp(entry->name, method)) {
-      result = entry->handler(client, p);
-      goto exit;
-    }
-  }
-  
-  client_error(client, "unknown_method");
-  
-exit:
-  free(method);
-  return result;
 }
 
 int client_process(client_t *client)
 {
-  char *tmp, buffer[1025];
-  int n, result = 0;
-  
-  n = read(client->fd, buffer, 1024);
-  if (n == 0) {
-    musicd_log(LOG_INFO, "client", "client exits");
-    return 1;
-  }
-  if (n < 0) {
-    musicd_perror(LOG_INFO, "client", "terminating client");
-    return 1;
-  }
-  
-  if (client->buf_size == 0) {
-    client->buf = malloc(n + 1);
-  } else {
-    tmp = malloc(client->buf_size + n + 1);
-    memcpy(tmp, client->buf, client->buf_size);
-    free(client->buf);
-    client->buf = tmp;
-  }
-  
-  memcpy(client->buf + client->buf_size, buffer, n);
-  client->buf_size += n;
-  
-  if (client->buf[client->buf_size - 2] != '\n'
-   || client->buf[client->buf_size - 1] != '\n') {
-    /* Data not fed yet. */
-    return 0;
-  }
-  
-  client->buf[client->buf_size] = '\0';
-  
-  result = process_call(client);
-  
-  free(client->buf);
-  client->buf = NULL;
-  client->buf_size = 0;
-  return result;
-}
+  int result;
 
+  result = read_data(client);
+  if (result < 0) {
+    return result;
+  }
+
+  if (!client->protocol) {
+    /* The client has no protocol detected yet */
+
+    find_protocol(client);
+
+    if (!client->protocol) {
+      musicd_log(LOG_ERROR, "client", "%s: unknown protocol, terminating",
+                 client->address);
+      return -1;
+    }
+    
+    musicd_log(LOG_DEBUG, "client", "%s: protocol is '%s'",
+                          client->address, client->protocol->name);
+    
+    /* Actually open the client to be processed with detected protocol */
+    client->self = client->protocol->open(client);
+  }
+
+  /* First we (try to) purge the entire outgoing buffer. */
+  
+  if (string_size(client->outbuf) > 0) {
+    /* There is outgoing data in buffer, try to write */
+    result = write_data(client);
+    if (result < 0) {
+      return result;
+    }
+  }
+
+  /* If there was nothing to write but we have unprocessed data, process it. */
+
+  if (string_size(client->inbuf) > 0) {
+    result = client->protocol->process(client->self,
+                                      string_string(client->inbuf),
+                                      string_size(client->inbuf));
+    if (result < 0) {
+      return result;
+    }
+
+    string_remove_front(client->inbuf, result);
+  } else if (client->feed && string_size(client->outbuf) == 0) {
+
+    /* There wasn't anything to process, we can push data to the client and the
+     * outgoing buffer is empty. */
+
+    client->protocol->feed(client->self);
+  }
+
+  return 0;
+}
 
 int client_send(client_t *client, const char *format, ...)
 {
@@ -503,40 +199,23 @@ int client_send(client_t *client, const char *format, ...)
     
     buf = realloc(buf, size);
   }
-  n = write(client->fd, buf, n);
+  string_append(client->outbuf, buf);
   free(buf);
   return n;
 }
 
-
-int client_next_packet(client_t* client)
+int client_write(client_t *client, const char *data, size_t n)
 {
-  uint8_t *data;
-  int size;
-  int64_t pts;
-  
-  if (!client->stream) {
-    /* what? */
-    return -1;
-  }
-  
-  data = stream_next(client->stream, &size, &pts);
-  
-  if (!data) {
-    client_send(client, "packet\npayload:=0\n\n");
-    return 0;
-  }
-  
-  client_send(client, "packet\n");
-  client_send(client, "pts=%li\n", pts);
-  client_send(client, "payload:=%i\n", size);
-  client_send(client, "\n");
-
-  write(client->fd, data, size);
-  
-  return 0;
-  
+  string_nappend(client->outbuf, data, n);
+  return n;
 }
 
 
+bool client_has_data(client_t *client)
+{
+  if (string_size(client->outbuf) > 0 || client->feed) {
+    return true;
+  }
+  return false;
+}
 

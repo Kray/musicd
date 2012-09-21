@@ -19,40 +19,44 @@
 #define MUSICD_CLIENT_H
 
 #include "libav.h"
+#include "protocol.h"
 #include "stream.h"
+#include "strings.h"
 #include "track.h"
 
+#include <stdbool.h>
 #include <pthread.h>
 #include <sys/queue.h>
 
 typedef struct client {
   int fd;
-  
+
   char *address;
+
+  string_t *inbuf;
+  string_t *outbuf;
+
+  protocol_t *protocol;
+  void *self;
   
-  char *buf;
-  int buf_size;
-  
-  char *user;
-  
-  stream_t *stream;
-  
+  /**
+   * If true, protocol->feed will be called whenever the client can read data.
+   */
+  bool feed;
+
   TAILQ_ENTRY(client) clients;
 } client_t;
-
 TAILQ_HEAD(client_list_t, client);
 
-client_t* client_new(int fd);
-
+client_t *client_new(int fd);
 void client_close(client_t *client);
 
-/**
- * Reads and handles an RPC call.
- */
 int client_process(client_t *client);
 
 int client_send(client_t *client, const char *format, ...);
+int client_write(client_t *client, const char *data, size_t n);
 
-int client_next_packet(client_t *client);
+bool client_has_data(client_t *client);
+
 
 #endif
