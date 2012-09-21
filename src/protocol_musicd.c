@@ -415,6 +415,16 @@ static void *musicd_open(client_t *client)
   return self;
 }
 
+static void musicd_close(self_t *self)
+{
+  free(self->user);
+  if (self->stream) {
+    stream_close(self->stream);
+  }
+
+  free(self);
+}
+
 static int musicd_process(self_t *self, const char *buf, size_t buf_size)
 {
   (void)buf_size;
@@ -501,7 +511,8 @@ protocol_t protocol_musicd = {
   .name = "musicd",
   .detect = musicd_detect,
   .open = musicd_open,
-  .process = (int(*)(void *, const char *, size_t))musicd_process,
+  .close = (void(*)(void *)) musicd_close,
+  .process = (int(*)(void *, const char *, size_t)) musicd_process,
   .feed = (void (*)(void *)) musicd_feed
 };
 

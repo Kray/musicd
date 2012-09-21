@@ -108,6 +108,9 @@ client_t *client_new(int fd)
 
 void client_close(client_t *client)
 {
+  if (client->protocol) {
+    client->protocol->close(client->self);
+  }
   close(client->fd);
   free(client->address);
   string_free(client->inbuf);
