@@ -33,7 +33,7 @@ typedef struct stream {
 
   transcoder_t *transcoder;
   uint8_t *buf;
-  int buf_size;
+  size_t buf_size;
   
   format_t *format;
   
@@ -49,7 +49,7 @@ typedef struct stream {
 stream_t *stream_open(track_t *track);
 void stream_close(stream_t *stream);
 int stream_set_transcoder(stream_t *stream, transcoder_t *transcoder);
-uint8_t *stream_next(stream_t *stream, int *size, int64_t *pts);
+uint8_t *stream_next(stream_t *stream, size_t *size, int64_t *pts);
 int stream_seek(stream_t *stream, int position);
 
 

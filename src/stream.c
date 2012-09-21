@@ -152,7 +152,7 @@ static int read_next(stream_t *stream)
   return 0;
 }
 
-uint8_t *stream_next(stream_t *stream, int *size, int64_t *pts)
+uint8_t *stream_next(stream_t *stream, size_t *size, int64_t *pts)
 {
   int result = 0;
   
