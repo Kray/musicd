@@ -65,4 +65,7 @@ const char *strcasestr(const char *haystack, const char *needle);
 /** Tests if @p string begins with @p what. */
 int strbeginswith(const char *string, const char *what);
 
+/** @returns new string with content starting from @p begin to @p end. */
+char *strextract(const char *begin, const char *end);
+
 #endif

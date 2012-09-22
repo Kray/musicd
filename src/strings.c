@@ -205,3 +205,20 @@ int strbeginswith(const char *string, const char *what)
   return !strncmp(string, what, what_len);
 }
 
+
+char *strextract(const char *begin, const char *end)
+{
+  size_t size = end - begin;
+  char *result;
+
+  if (!begin || !end) {
+    return NULL;
+  }
+
+  assert(begin < end);
+
+  result = malloc(size + 1);
+  memcpy(result, begin, size);
+  result[size] = '\0';
+  return result;
+}
