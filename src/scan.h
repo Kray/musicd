@@ -26,5 +26,6 @@ int scan_start();
 
 void scan_stop();
 
+void scan_image_prefix_changed(char *prefix);
 
 #endif

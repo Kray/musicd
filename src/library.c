@@ -314,8 +314,9 @@ static bool delete_urls_cb(library_url_t *url)
   library_url_delete(url->id);
   return true;
 }
-static bool delete_directories_cb(library_directory_t *directory)
+static bool delete_directories_cb(library_directory_t *directory, void *empty)
 {
+  (void)empty;
   library_directory_delete(directory->id);
   return true;
 }
@@ -325,7 +326,7 @@ void library_directory_delete(int64_t directory)
   sqlite3_stmt *query;
   
   library_iterate_urls_by_directory(directory, delete_urls_cb);
-  library_iterate_directories(directory, delete_directories_cb);
+  library_iterate_directories(directory, delete_directories_cb, NULL);
   
   if (!prepare_query(sql, &query)) {
     return;
@@ -361,9 +362,24 @@ void library_directory_mtime_set(int64_t directory, time_t mtime)
 
   execute(query);
 }
+int library_directory_tracks_count(int64_t directory)
+{
+  static const char *sql = "SELECT COUNT(tracks.rowid) FROM directories JOIN urls ON urls.directory = directories.rowid JOIN tracks ON tracks.url = urls.rowid WHERE directories.rowid = ?";
+  sqlite3_stmt *query;
+
+  if (!prepare_query(sql, &query)) {
+    return -1;
+  }
+
+  sqlite3_bind_int64(query, 1, directory);
+
+  return execute_scalar(query);
+}
 
 void library_iterate_directories
-  (int64_t parent, bool (*callback)(library_directory_t *directory))
+  (int64_t parent,
+   bool (*callback)(library_directory_t *directory, void *opaque),
+   void *opaque)
 {
   static const char *sql = "SELECT rowid, path, mtime, parent FROM directories WHERE parent = ?";
   sqlite3_stmt *query;
@@ -383,7 +399,7 @@ void library_iterate_directories
     directory.mtime = sqlite3_column_int64(query, 2);
     directory.parent = sqlite3_column_int64(query, 3);
     
-    cb_result = callback(&directory);
+    cb_result = callback(&directory, opaque);
     if (cb_result == false) {
       break;
     }
@@ -419,7 +435,7 @@ int64_t library_image_add(int64_t url)
 char *library_album_image_path(int64_t album)
 {
   static const char *sql =
-    "SELECT urls.path AS path FROM images JOIN urls ON images.url = urls.rowid WHERE images.album = ?";
+    "SELECT urls.path AS path FROM albums JOIN images ON albums.image = images.rowid JOIN urls ON images.url = urls.rowid WHERE albums.rowid = ?";
   sqlite3_stmt *query;
   int result;
   char *path = NULL;;
@@ -440,6 +456,21 @@ char *library_album_image_path(int64_t album)
 
   sqlite3_finalize(query);
   return path;
+}
+
+void library_album_image_set(int64_t album, int64_t image)
+{
+  static const char *sql = "UPDATE albums SET image = ? WHERE rowid = ?";
+  sqlite3_stmt *query;
+
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+
+  sqlite3_bind_int64(query, 1, image);
+  sqlite3_bind_int64(query, 2, album);
+
+  execute(query);
 }
 
 void library_iterate_images_by_directory
@@ -474,6 +505,42 @@ void library_iterate_images_by_directory
     musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
   }
   
+  sqlite3_finalize(query);
+}
+
+
+void library_iterate_images_by_album
+  (int64_t album, bool (*callback)(library_image_t *url, void *opaque), void *opaque)
+{
+  static const char *sql =
+    "SELECT images.rowid AS id, urls.path AS path, urls.directory AS directory FROM images JOIN urls ON images.url = urls.rowid WHERE images.album = ?;";
+  sqlite3_stmt *query;
+  int result;
+  library_image_t image;
+  bool cb_result = true;
+
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+
+  sqlite3_bind_int64(query, 1, album);
+
+  image.album = album;
+
+  while ((result = sqlite3_step(query)) == SQLITE_ROW) {
+    image.id = sqlite3_column_int64(query, 0);
+    image.path = (const char*)sqlite3_column_text(query, 1);
+    image.directory = sqlite3_column_int64(query, 2);
+
+    cb_result = callback(&image, opaque);
+    if (cb_result == false) {
+      break;
+    }
+  }
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
+  }
+
   sqlite3_finalize(query);
 }
 

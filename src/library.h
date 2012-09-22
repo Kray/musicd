@@ -91,6 +91,11 @@ time_t library_directory_mtime(int64_t directory);
  */
 void library_directory_mtime_set(int64_t directory, time_t mtime);
 
+/**
+ * @returns amount of tracks in @p directory
+ */
+int library_directory_tracks_count(int64_t directory);
+
 typedef struct {
   int64_t id;
   const char *path;
@@ -103,7 +108,9 @@ typedef struct {
  * returns false.
  */
 void library_iterate_directories
-  (int64_t parent, bool (*callback)(library_directory_t *directory));
+  (int64_t parent,
+   bool (*callback)(library_directory_t *directory, void *opaque),
+   void *opaque);
 
 
 int64_t library_image_add(int64_t url);
@@ -116,14 +123,19 @@ typedef struct {
 } library_image_t;
 
 /**
- * @Returns path which must be freed or NULL if not found.
- * @todo Currently just returns first image associated with the album instead
- * of relying on albums.image because it isn't used yet.
+ * @returns path which must be freed or NULL if not found.
  */
 char *library_album_image_path(int64_t album);
 
+void library_album_image_set(int64_t album, int64_t image);
+
 void library_iterate_images_by_directory
   (int64_t directory, bool (*callback)(library_image_t *image));
+
+void library_iterate_images_by_album
+  (int64_t album,
+   bool (*callback)(library_image_t *image, void *opaque),
+   void *opaque);
 
 
 /**

@@ -115,6 +115,9 @@ int main(int argc, char* argv[])
   config_set("bind", "any");
   config_set("port", "6800");
   
+  config_set_hook("image-prefix", scan_image_prefix_changed);
+  config_set("image-prefix", "front,cover,jacket");
+
   if (config_load_args(argc, argv)) {
     musicd_log(LOG_FATAL, "main", "invalid command line arguments");
     print_usage(argv[0]);
@@ -148,7 +151,7 @@ int main(int argc, char* argv[])
   avcodec_register_all();
   
   av_log_set_level(AV_LOG_QUIET);
-  
+
   if (library_open()) {
     musicd_log(LOG_FATAL, "main", "could not open library");
     return -1;

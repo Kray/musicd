@@ -22,6 +22,7 @@
 #include "db.h"
 #include "library.h"
 #include "log.h"
+#include "strings.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -40,6 +41,13 @@ static bool thread_running = false;
 static pthread_t thread;
 
 static time_t last_scan = 0;
+
+/**
+ * Preferred prefixes for album image file names.
+ * @see scan_image_prefix_changed
+ */
+static char **image_prefixes = NULL;
+
 
 static void *scan_thread_func(void *data);
 
@@ -208,6 +216,104 @@ static bool scan_urls_cb(library_url_t *url)
   return true;
 }
 
+struct albumimg_comparison {
+  int64_t id;
+  char *name;
+  int level;
+};
+
+static bool update_albumimg_cb(library_image_t *image, void *opaque)
+{
+  char *name;
+  int level, diff;
+  bool better = false;
+  struct albumimg_comparison *comparison = opaque;
+
+  /* Extract what's between last '/' and last '.' in the path */
+
+  const char *p1 = image->path + strlen(image->path), *p2 = NULL;
+
+  for (; p1 > image->path && *(p1 - 1) != '/'; --p1) {
+    if (*p1 == '.' && !p2) {
+      p2 = p1;
+    }
+  }
+  if (!p2) {
+    p2 = image->path + strlen(image->path);
+  }
+
+  name = strextract(p1, p2);
+  if (image_prefixes) {
+    for (level = 0; image_prefixes[level]; ++level) {
+      if (!strncasecmp(image_prefixes[level], name, strlen(image_prefixes[level]))) {
+        /* Matches current level */
+        break;
+      }
+    }
+  } else {
+    level = 0;
+  }
+
+  /* First entry */
+  if (!comparison->id) {
+    better = true;
+    goto skip;
+  }
+
+  /* Lower level than previous best, must be better */
+  if (level < comparison->level) {
+    better = true;
+    goto skip;
+  }
+
+  /* Higher level than previous best, can't be better */
+  if (level > comparison->level) {
+    goto skip;
+  }
+
+  diff = strcasecmp(name, comparison->name);
+  if (diff < 0) {
+    /* "Smaller" means better */
+    better = true;
+  }
+
+skip:
+  if (better) {
+    comparison->id = image->id;
+    free(comparison->name);
+    comparison->name = name;
+    comparison->level = level;
+  } else {
+    free(name);
+  }
+
+  return true;
+}
+
+/**
+ * Tries to find the best image for @p album based on prefixes in image-prefix.
+ */
+static void update_albumimg(int64_t album)
+{
+  struct albumimg_comparison comparison = {
+    0, NULL, INT_MAX
+  };
+
+  library_iterate_images_by_album(album, update_albumimg_cb, &comparison);
+
+  if (comparison.id > 0) {
+    library_album_image_set(album, comparison.id);
+  }
+}
+
+static bool assign_images_cb(library_directory_t *directory, void *album)
+{
+  if (!library_directory_tracks_count(directory->id) > 0) {
+    library_image_album_set_by_directory(directory->id, *((int64_t *)album));
+  }
+  return true;
+}
+
 static void assign_images(int64_t directory)
 {
   int64_t album;
@@ -215,12 +321,17 @@ static void assign_images(int64_t directory)
   if (album <= 0) {
     return;
   }
-  
+
   library_image_album_set_by_directory(directory, album);
+
+  library_iterate_directories(directory, assign_images_cb, (void *)&album);
+
+  update_albumimg(album);
 }
 
-static bool scan_directory_cb(library_directory_t *directory)
+static bool scan_directory_cb(library_directory_t *directory, void *empty)
 {
+  (void)empty;
   struct stat status;
   if (stat(directory->path, &status)) {
     musicd_perror(LOG_DEBUG, "scan", "removing directory %s", directory->path);
@@ -232,7 +343,7 @@ static bool scan_directory_cb(library_directory_t *directory)
     return false;
   }
   
-  library_iterate_directories(directory->id, scan_directory_cb);
+  library_iterate_directories(directory->id, scan_directory_cb, NULL);
   
   if (directory->mtime == status.st_mtime) {
     return true;
@@ -269,7 +380,7 @@ static void scan_directory(const char *dirpath, int parent)
   }
   
   if (dir_id > 0) {
-    library_iterate_directories(dir_id, scan_directory_cb);
+    library_iterate_directories(dir_id, scan_directory_cb, NULL);
     dir_mtime = library_directory_mtime(dir_id);
     if (dir_mtime == status.st_mtime) {
       return;
@@ -290,7 +401,8 @@ static void scan_directory(const char *dirpath, int parent)
   library_directory_mtime_set(dir_id, status.st_mtime);
 }
 
-static void scan() {
+static void scan()
+{
   const char *raw_path = config_to_path("music-directory");
   char *path;
   time_t now;
@@ -349,4 +461,42 @@ static void *scan_thread_func(void *data)
   }
   
   return NULL;
+}
+
+/**
+ * Splits @p prefix to an array of strings in @var image_prefixes
+ */
+void scan_image_prefix_changed(char *prefix)
+{
+  int count = 1;
+  char *p, **p2;
+
+  if (image_prefixes) {
+    for (p2 = image_prefixes; *p2 != NULL; ++p2) {
+      free(*p2);
+    }
+    free(image_prefixes);
+  }
+
+  if (!prefix) {
+    return;
+  }
+
+  for (p = prefix; *p != '\0'; ++p) {
+    if (*p == ',') {
+      ++count;
+    }
+  }
+
+  image_prefixes = p2 = malloc((count + 1) * sizeof(char *));
+
+  for (p = prefix + 1; *(p - 1) != '\0'; ++p) {
+    if (*p == ',' || *p == '\0') {
+      *(p2++) = strextract(prefix, p);
+
+      prefix = p + 1;
+    }
+  }
+
+  *p2 = NULL;
 }
