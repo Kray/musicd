@@ -133,17 +133,21 @@ int64_t library_track_add(track_t *track, int64_t url)
 {
   static const char *sql =
     "INSERT INTO tracks (url, track, title, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
-  
+
   int64_t artist, album;
   sqlite3_stmt *query;
-  
+
   if (!prepare_query(sql, &query)) {
     return -1;
   }
-    
-  artist = field_rowid_create("artists", "name", track->artist);
-  album = field_rowid_create("albums", "name", track->album);
-  
+
+  if (track->artist) {
+    artist = field_rowid_create("artists", "name", track->artist);
+  }
+  if (track->album) {
+    album = field_rowid_create("albums", "name", track->album);
+  }
+
   sqlite3_bind_int64(query, 1, url);
   sqlite3_bind_int(query, 2, track->track);
   sqlite3_bind_text(query, 3, track->title, -1, NULL);
@@ -151,7 +155,7 @@ int64_t library_track_add(track_t *track, int64_t url)
   sqlite3_bind_int64(query, 5, album);
   sqlite3_bind_int(query, 6, track->start);
   sqlite3_bind_int(query, 7, track->duration);
-  
+
   if (!execute(query)) {
     return -1;
   }
@@ -636,7 +640,7 @@ library_query_t *library_search
   sqlite3_stmt *result;
 
   static const char *q_track_all =
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
+    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
   
   /*static const char *q_track_title = 
     "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE COALESCE(tracks.title, '') LIKE ?";
@@ -721,7 +725,7 @@ track_t *library_track_by_id(int64_t id)
   track_t *track;
   int result;
   static const char *sql =
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
+    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid WHERE tracks.rowid = ?";
   
   if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql,
