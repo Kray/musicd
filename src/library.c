@@ -21,6 +21,7 @@
 #include "cue.h"
 #include "db.h"
 #include "log.h"
+#include "strings.h"
 
 #include <sqlite3.h>
 
@@ -627,89 +628,6 @@ void library_lyrics_set(int64_t track, char *lyrics)
 }
 
 
-struct library_query {
-  library_table_t table;
-  library_field_t field;
-  sqlite3_stmt *stmt;
-};
-
-library_query_t *library_search
-  (library_table_t table, library_field_t field, const char *search)
-{
-  (void) table; (void) field;
-  sqlite3_stmt *result;
-
-  static const char *q_track_all =
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid WHERE (COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, '')) LIKE ?";
-  
-  /*static const char *q_track_title = 
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE COALESCE(tracks.title, '') LIKE ?";
-               
-  static const char *q_track_artist = 
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE COALESCE(artists.name, '') LIKE ?";
-
-  static const char *q_track_album = 
-    "SELECT tracks.rowid AS id, urls.path AS url, tracks.track AS track, tracks.title AS title, artists.name AS artist, albums.name AS album, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid JOIN artists ON tracks.artist = artists.rowid JOIN albums ON tracks.album = albums.rowid WHERE COALESCE(albums.name, '') LIKE ?";
-  */
-  const char *sql = NULL;
-  
-  sql = q_track_all;
-  
-  
-  /*if (table == LIBRARY_TABLE_TRACKS){
-    if (field == LIBRARY_FIELD_ALL) {
-      sql = q_track_all;
-    } else if (field == LIBRARY_FIELD_TITLE) {
-      sql = q_track_title;
-    } else if (field == LIBRARY_FIELD_ARTIST) {
-      sql = q_track_artist;
-    } else if (field == LIBRARY_FIELD_ALBUM) {
-      sql = q_track_album;
-    }
-  }*/
-  if (sqlite3_prepare_v2(db_handle(), q_track_all, -1, &result, NULL) != SQLITE_OK) {
-    musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql, db_error());
-    return NULL;
-  }
-  
-  sqlite3_bind_text(result, 1, search, -1, NULL);
-  
-  return (library_query_t *)result;
-}
-
-int library_query_next(library_query_t *query, track_t* track)
-{
-  int result;
-  
-  if (!query) {
-    return -1;
-  }
-  
-  result = sqlite3_step((sqlite3_stmt*)query);
-  if (result == SQLITE_DONE) {
-    return 1;
-  } else if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "library", "library_search_next: sqlite3_step failed");
-    return -1;
-  }
-
-  track->id = sqlite3_column_int64((sqlite3_stmt *)query, 0);
-  track->path = (char *)sqlite3_column_text((sqlite3_stmt*)query, 1);
-  track->track = sqlite3_column_int((sqlite3_stmt *)query, 2);
-  track->title = (char *)sqlite3_column_text((sqlite3_stmt *)query, 3);
-  track->artistid = sqlite3_column_int64((sqlite3_stmt *)query, 4);
-  track->artist = (char *)sqlite3_column_text((sqlite3_stmt *)query, 5);
-  track->albumid = sqlite3_column_int64((sqlite3_stmt *)query, 6);
-  track->album = (char *)sqlite3_column_text((sqlite3_stmt*)query, 7);
-  track->duration = sqlite3_column_int((sqlite3_stmt *)query, 8);
-  return 0;
-}
-
-void library_query_close(library_query_t *query)
-{
-  sqlite3_finalize((sqlite3_stmt*)query);
-}
-
 /* Used by library_track_by_id. */
 static char *dup_or_empty(const char *src)
 {
@@ -772,4 +690,223 @@ int64_t library_randomid()
 }
 
 
+static const char *field_names[LIBRARY_FIELD_ALL] = {
+  "",
+  "trackid",
+  "url",
+  "track",
+  "title",
+  "artistid",
+  "artist",
+  "albumid",
+  "album",
+  "start",
+  "duration",
+};
 
+static const char *field_maps[LIBRARY_FIELD_ALL + 1] = {
+  "",
+  "tracks.rowid",
+  "urls.path",
+  "tracks.track",
+  "tracks.title",
+  "tracks.artist",
+  "artists.name",
+  "tracks.album",
+  "albums.name",
+  "tracks.start",
+  "tracks.duration",
+  /* Special case... */
+  "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
+};
+
+library_field_t library_field_from_string(const char *string)
+{
+  int i;
+  for (i = 1; i < LIBRARY_FIELD_ALL; ++i) {
+    if (!strcmp(string, field_names[i])) {
+      return i;
+    }
+  }
+  return LIBRARY_FIELD_NONE;
+}
+
+struct library_query {
+  sqlite3_stmt *stmt;
+
+  char *filters[LIBRARY_FIELD_ALL + 1];
+  int64_t limit;
+  int64_t offset;
+
+  string_t *order;
+};
+
+library_query_t *library_query_new()
+{
+  library_query_t *query = malloc(sizeof(library_query_t));
+  memset(query, 0, sizeof(library_query_t));
+  query->order = string_new();
+  query->limit = -1;
+  return query;
+}
+
+void library_query_close(library_query_t *query)
+{
+  int i;
+
+  sqlite3_finalize(query->stmt);
+  for (i = 0; i <= LIBRARY_FIELD_ALL; ++i) {
+    free(query->filters[i]);
+  }
+  string_free(query->order);
+  free(query);
+}
+
+void library_query_filter(library_query_t *query, library_field_t field,
+                      const char *filter)
+{
+  query->filters[field] = filter ? stringf("%%%s%%", filter) : NULL;
+}
+
+void library_query_limit(library_query_t *query, int64_t limit)
+{
+  query->limit = limit;
+}
+
+void library_query_offset(library_query_t *query, int64_t offset)
+{
+  query->offset = offset;
+}
+
+void library_query_sort(library_query_t *query, library_field_t field,
+                        bool descending)
+{
+  if (string_size(query->order) > 0) {
+    string_append(query->order, ", ");
+  }
+  string_appendf(query->order, "%s COLLATE NOCASE %s",
+                               field_maps[field],
+                               descending ? "DESC" : "ASC");
+}
+
+int library_query_sort_from_string(library_query_t *query, const char *sort)
+{
+  const char *end;
+  char *name;
+  bool descending;
+  library_field_t field;
+
+  while (*sort != '\0') {
+    if (*sort == '-') {
+      descending = true;
+      ++sort;
+    } else {
+      descending = false;
+    }
+
+    for (end = sort; *end != ',' && *end != '\0'; ++end) { }
+
+    name = strextract(sort, end);
+    field = library_field_from_string(name);
+    free(name);
+
+    if (field == LIBRARY_FIELD_NONE) {
+      /* Not a valid field name */
+      return -1;
+    }
+
+    library_query_sort(query, field, descending);
+
+    sort = end;
+
+    if (*sort == ',') {
+      ++sort;
+    }
+  }
+  return 0;
+}
+
+
+int library_query_start(library_query_t *query)
+{
+  int i, n;
+  bool join;
+  string_t *sql = string_new();
+  string_append(sql, "SELECT tracks.rowid AS trackid, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid ");
+
+  join = false;
+  for (i = 1; i <= LIBRARY_FIELD_ALL; ++i) {
+    if (query->filters[i]) {
+      if (!join) {
+        string_appendf(sql, "WHERE ");
+        join = true;
+      } else {
+        string_appendf(sql, " AND ");
+      }
+      string_appendf(sql, "%s LIKE ?", field_maps[i]);
+    }
+  }
+
+
+  if (string_size(query->order) > 0) {
+    string_appendf(sql, " ORDER BY %s", string_string(query->order));
+  }
+
+  if (query->limit > 0 || query->offset > 0) {
+    string_appendf(sql, " LIMIT %ld OFFSET %ld", query->limit, query->offset);
+  }
+
+  if (sqlite3_prepare_v2(db_handle(),
+                        string_string(sql), -1,
+                        &query->stmt, NULL)!= SQLITE_OK) {
+    musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s",
+               string_string(sql), db_error());
+    return -1;
+  }
+
+  for (i = 1, n = 1; i <= LIBRARY_FIELD_ALL; ++i) {
+    if (query->filters[i]) {
+      sqlite3_bind_text(query->stmt, n, query->filters[i], -1, NULL);
+      ++n;
+    }
+  }
+
+  return 0;
+}
+
+int library_query_next_track(library_query_t *query, track_t *track)
+{
+  int result;
+  sqlite3_stmt *stmt;
+
+  if (!query) {
+    return -1;
+  }
+
+  stmt = query->stmt;
+
+  result = sqlite3_step(stmt);
+  if (result == SQLITE_DONE) {
+    return 1;
+  } else if (result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library",
+               "library_query_next: sqlite3_step failed");
+    return -1;
+  }
+
+  track->id = sqlite3_column_int64(stmt, 0);
+  track->path = (char *)sqlite3_column_text(stmt, 1);
+  track->track = sqlite3_column_int(stmt, 2);
+  track->title = (char *)sqlite3_column_text(stmt, 3);
+  track->artistid = sqlite3_column_int64(stmt, 4);
+  track->artist = (char *)sqlite3_column_text(stmt, 5);
+  track->albumid = sqlite3_column_int64(stmt, 6);
+  track->album = (char *)sqlite3_column_text(stmt, 7);
+  track->start = sqlite3_column_int(stmt, 8);
+  track->duration = sqlite3_column_int(stmt, 9);
+
+  /*musicd_log(LOG_DEBUG, "library", "%i %s %i %s %s %s %i %i", track->id,
+             track->path, track->track, track->title, track->artist,
+             track->album, track->start, track->duration);*/
+  return 0;
+}

@@ -152,37 +152,41 @@ static int method_auth(self_t *self, char *p)
 
 static int method_search(self_t *self, char *p)
 {
-  char *search, *needle;
+  char *search;
   library_query_t *query;
   track_t track;
   
   search = get_str(p, "query");
-  
   if (!search) {
     client_error(self->client, "no_query");
     return 0;
   }
   
-  needle = malloc(strlen(search) + 2 + 1);
-  
-  sprintf(needle, "%%%s%%", search);
-  
-  free(search);
-  
-  query = library_search(LIBRARY_TABLE_TRACKS, LIBRARY_FIELD_NONE, needle);
+  query = library_query_new();
   if (!query) {
-    musicd_log(LOG_ERROR, "protocol_musicd", "no query returned for search '%s'",
-               needle);
+    musicd_log(LOG_ERROR, "protocol_musicd",
+               "no query returned for search '%s'", search);
+    client_error(self->client, "server_error");
+    return -1;
   }
   
-  while (!library_query_next(query, &track)) {
+  library_query_filter(query, LIBRARY_FIELD_ALL, search);
+
+  if (library_query_start(query)) {
+    musicd_log(LOG_ERROR, "protocol_musicd", "can't start query");
+    client_error(self->client, "server_error");
+    return -1;
+  }
+
+
+  while (!library_query_next_track(query, &track)) {
     send_track(self->client, &track);
   }
-  
+
   library_query_close(query);
-  
-  free(needle);
-  
+
+  free(search);
+
   client_send(self->client, "search\n\n");
   return 0;
 }
