@@ -38,7 +38,7 @@ char *image_cache_name(int64_t image, int size)
 
 char *image_create_thumbnail(const char *path, int size, int *data_size)
 {
-  FIBITMAP *fromimg, *toimg;
+  FIBITMAP *img1, *img2;
   FIMEMORY *memory;
   uint32_t msize;
   char *mbuf, *buf;
@@ -49,18 +49,41 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
     return NULL;
   }
   
-  fromimg = FreeImage_Load(format, path, 0);
-  if (!fromimg) {
+  img1 = FreeImage_Load(format, path, 0);
+  if (!img1) {
     musicd_log(LOG_ERROR, "image", "can't open image '%s'", path);
     return NULL;
   }
-  
-  toimg = FreeImage_MakeThumbnail(fromimg, size, 1);
-  FreeImage_Unload(fromimg);
+
+  if (FreeImage_GetWidth(img1) >= FreeImage_GetHeight(img1) * 1.75) {
+    /* The image is most likely a scan of both front and back sheet,
+     * crop the left (back) side off. */
+    img2 = FreeImage_Copy(img1,
+                          FreeImage_GetWidth(img1) / 2.0,
+                          0, FreeImage_GetWidth(img1),
+                          FreeImage_GetHeight(img1));
+    if (!img2) {
+      if (!img1) {
+        musicd_log(LOG_ERROR, "image", "can't crop image '%s'", path);
+        return NULL;
+      }
+    }
+    FreeImage_Unload(img1);
+    img1 = img2;
+  }
+
+  img2 = FreeImage_MakeThumbnail(img1, size, 1);
+  if (!img2) {
+    musicd_log(LOG_ERROR, "image", "can't scale image '%s'", path);
+    return NULL;
+  }
+
+  FreeImage_Unload(img1);
+  img1 = img2;
 
   memory = FreeImage_OpenMemory(NULL, 0);
   
-  FreeImage_SaveToMemory(FIF_JPEG, toimg, memory, 0);
+  FreeImage_SaveToMemory(FIF_JPEG, img1, memory, 0);
   
   FreeImage_AcquireMemory(memory, (BYTE **)&mbuf, &msize);
   
