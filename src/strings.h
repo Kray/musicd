@@ -47,6 +47,7 @@ const char *string_string(string_t *string);
 size_t string_size(string_t *string);
 
 void string_append(string_t *string, const char *string2);
+void string_appendf(string_t *string, const char *format, ...);
 void string_nappend(string_t *string, const char *string2, size_t n);
 
 void string_push_back(string_t *string, char c);

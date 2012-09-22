@@ -87,6 +87,34 @@ void string_append(string_t *string, const char *string2)
   string_nappend(string, string2, strlen(string2));
 }
 
+void string_appendf(string_t *string, const char *format, ...)
+{
+  int n, size = 128;
+  char *buf;
+  va_list va_args;
+
+  buf = malloc(size);
+
+  while (1) {
+    va_start(va_args, format);
+    n = vsnprintf(buf, size, format, va_args);
+    va_end(va_args);
+
+    if (n > -1 && n < size) {
+      break;
+    }
+
+    if (n > -1) {
+      size = n + 1;
+    } else {
+      size *= 2;
+    }
+
+    buf = realloc(buf, size);
+  }
+  string_nappend(string, buf, n);
+}
+
 void string_nappend(string_t *string, const char *string2, size_t addlen)
 {
   size_t newlen;
