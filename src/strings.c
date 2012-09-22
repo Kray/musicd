@@ -194,6 +194,15 @@ const char *strcasestr(const char *haystack, const char *needle)
   return NULL;
 }
 
+const char *strchrnull(const char *s, int c)
+{
+  const char *result = strchr(s, c);
+  if (!result) {
+    result = s + strlen(s);
+  }
+  return result;
+}
+
 int strbeginswith(const char *string, const char *what)
 {
   size_t string_len = strlen(string), what_len = strlen(what);

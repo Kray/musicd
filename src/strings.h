@@ -62,6 +62,10 @@ char *stringf(const char *format, ...);
 /** Case-insensitive strstr. */
 const char *strcasestr(const char *haystack, const char *needle);
 
+/** Like strchr, except that if @p c is not found, null terminating byte of
+ * @p s is returned. */
+const char *strchrnull(const char *s, int c);
+
 /** Tests if @p string begins with @p what. */
 int strbeginswith(const char *string, const char *what);
 
