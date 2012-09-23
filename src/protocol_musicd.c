@@ -273,8 +273,8 @@ static int method_open(self_t *self, char *p)
     client_send(self->client, "extradata:=%i\n\n",
                 stream->format->extradata_size);
     
-    write(self->client->fd, stream->format->extradata,
-          stream->format->extradata_size);
+    client_write(self->client, (char *)stream->format->extradata,
+                 stream->format->extradata_size);
   } else {
     client_send(self->client, "\n");
   }
