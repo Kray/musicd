@@ -45,13 +45,13 @@ typedef struct self {
 static void send_track(client_t *client, track_t* track)
 {
   client_send(client, "track\n");
-  client_send(client, "id=%lu\n", track->id);
+  client_send(client, "id=%" PRId64 "\n", track->id);
   client_send(client, "path=%s\n", track->path);
   client_send(client, "track=%i\n", track->track);
   client_send(client, "title=%s\n", track->title);
-  client_send(client, "artistid=%lu\n", track->artistid);
+  client_send(client, "artistid=%" PRId64 "\n", track->artistid);
   client_send(client, "artist=%s\n", track->artist);
-  client_send(client, "albumid=%lu\n", track->albumid);
+  client_send(client, "albumid=%" PRId64 "\n", track->albumid);
   client_send(client, "album=%s\n", track->album);
   client_send(client, "duration=%i\n", track->duration);
   client_send(client, "\n");
@@ -98,7 +98,7 @@ static int64_t get_int(char *src, const char *key)
 {
   int64_t result = 0;
   char *search;
-  search = stringf("%s=%%ld", key);
+  search = stringf("%s=%%" PRId64 "", key);
   for (; *src != '\n' && *src != '\0';) {
     if (sscanf(src, search, &result)) {
       break;
@@ -197,7 +197,7 @@ static int method_randomid(self_t *self, char *p)
   int64_t id;
   id = library_randomid();
   
-  client_send(self->client, "randomid\nid=%li\n\n", id);
+  client_send(self->client, "randomid\nid=%" PRId64 "\n\n", id);
   return 0;
 }
 
@@ -505,7 +505,7 @@ static void musicd_feed(self_t *self)
   }
   
   client_send(self->client, "packet\n");
-  client_send(self->client, "pts=%li\n", pts);
+  client_send(self->client, "pts=%" PRId64 "\n", pts);
   client_send(self->client, "payload:=%i\n", size);
   client_send(self->client, "\n");
 

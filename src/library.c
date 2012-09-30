@@ -135,7 +135,7 @@ int64_t library_track_add(track_t *track, int64_t url)
   static const char *sql =
     "INSERT INTO tracks (url, track, title, artist, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?)";
 
-  int64_t artist, album;
+  int64_t artist = 0, album = 0;
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
@@ -673,8 +673,8 @@ track_t *library_track_by_id(int64_t id)
   track->start = sqlite3_column_int(stmt, 8);
   track->duration = sqlite3_column_int(stmt, 9);
   
-  musicd_log(LOG_DEBUG, "library", "%i %s %i %s %s %s %i %i", track->id,
-             track->path, track->track, track->title, track->artist,
+  musicd_log(LOG_DEBUG, "library", "%" PRId64 " %s %i %s %s %s %i %i",
+             track->id, track->path, track->track, track->title, track->artist,
              track->album, track->start, track->duration);
   
   return track;
@@ -853,7 +853,7 @@ int library_query_start(library_query_t *query)
   }
 
   if (query->limit > 0 || query->offset > 0) {
-    string_appendf(sql, " LIMIT %ld OFFSET %ld", query->limit, query->offset);
+    string_appendf(sql, " LIMIT %" PRId64 " OFFSET %" PRId64 "", query->limit, query->offset);
   }
 
   if (sqlite3_prepare_v2(db_handle(),

@@ -32,7 +32,7 @@ char *image_cache_name(int64_t image, int size)
 { 
   /* Round to closest power of two */
   size = pow(2, ceil(log(size)/log(2)));
-  return stringf("%lu_%d.jpg", image, size);
+  return stringf("%" PRId64 "_%d.jpg", image, size);
 }
 
 
