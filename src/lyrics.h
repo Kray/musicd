@@ -28,7 +28,8 @@ char *lyrics_fetch(const track_t *track);
 
 /**
  * Lyrics fetching task handler.
+ * @p id_ptr int64_t * which lyrics_task will free itself
  */
-void *lyrics_task(void *);
+void *lyrics_task(void *id_ptr);
 
 #endif

@@ -366,11 +366,13 @@ static int method_lyrics(self_t *self, char *p)
   char *lyrics;
   time_t ltime = 0;
   int64_t id = get_int(p, "track");
+  int64_t *id_ptr = malloc(sizeof(int64_t));
+  *id_ptr = id;
   
   lyrics = library_lyrics(id, &ltime);
   if (!lyrics) {
     if (ltime < (time(NULL) - 24 * 60 * 60)) {
-      task_launch(lyrics_task, (void *)id);
+      task_launch(lyrics_task, (void *)id_ptr);
       client_send(self->client, "lyrics\nstatus=retry\n\n");
     } else {
       client_send(self->client, "lyrics\nstatus=unavailable\n\n");

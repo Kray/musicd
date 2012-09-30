@@ -181,11 +181,12 @@ char *lyrics_fetch(const track_t *track)
   return NULL;
 }
 
-void* lyrics_task(void *data)
+void *lyrics_task(void *data)
 {
   track_t *track;
   char *lyrics;
-  int64_t id = (int64_t)data;
+  int64_t id = *((int64_t *)data);
+  free(data);
   
   track = library_track_by_id(id);
   if (!track) {
