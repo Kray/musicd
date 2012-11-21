@@ -57,6 +57,9 @@ static void build_pollfds()
   TAILQ_FOREACH(client, &clients, clients) {
     poll_fds[i].fd = client->fd;
     poll_fds[i].events = POLLIN;
+    if (client_has_data(client)) {
+      poll_fds[i].events = POLLOUT;
+    }
     ++i;
   }
   
@@ -95,10 +98,10 @@ static void *thread_func(void *data)
     }
     
     if (poll_fds[nb_clients].revents & POLLIN) {
-      if (!(client = server_accept())) {
-        continue;
+      if ((client = server_accept())) {
+        musicd_log(LOG_INFO, "server", "new client from %s", client->address);
       }
-      musicd_log(LOG_INFO, "server", "new client from %s", client->address);
+      continue; /* poll_fds changed */
     }
 
     for (i = 0; i < nb_clients; ++i) {
