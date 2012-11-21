@@ -10,6 +10,7 @@ SRCS =  src/cache.c \
 	src/log.c \
 	src/lyrics.c \
 	src/musicd.c \
+	src/query.c \
 	src/scan.c \
 	src/server.c \
 	src/stream.c \
@@ -26,6 +27,7 @@ DEPS = $(SRCS)
 CFLAGS += -g -Wall -Wextra
 
 LIBS = -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
+
 
 PREFIX ?= /usr/local
 

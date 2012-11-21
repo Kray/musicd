@@ -25,6 +25,7 @@
 #include "library.h"
 #include "log.h"
 #include "lyrics.h"
+#include "query.h"
 #include "server.h"
 #include "strings.h"
 #include "task.h"
@@ -153,7 +154,7 @@ static int method_auth(self_t *self, char *p)
 static int method_search(self_t *self, char *p)
 {
   char *search;
-  library_query_t *query;
+  query_t *query;
   track_t track;
   
   search = get_str(p, "query");
@@ -162,7 +163,7 @@ static int method_search(self_t *self, char *p)
     return 0;
   }
   
-  query = library_query_new();
+  query = query_tracks_new();
   if (!query) {
     musicd_log(LOG_ERROR, "protocol_musicd",
                "no query returned for search '%s'", search);
@@ -170,20 +171,20 @@ static int method_search(self_t *self, char *p)
     return -1;
   }
   
-  library_query_filter(query, LIBRARY_FIELD_ALL, search);
+  query_filter(query, QUERY_FIELD_ALL, search);
 
-  if (library_query_start(query)) {
+  if (query_start(query)) {
     musicd_log(LOG_ERROR, "protocol_musicd", "can't start query");
     client_error(self->client, "server_error");
     return -1;
   }
 
 
-  while (!library_query_next_track(query, &track)) {
+  while (!query_tracks_next(query, &track)) {
     send_track(self->client, &track);
   }
 
-  library_query_close(query);
+  query_close(query);
 
   free(search);
 
