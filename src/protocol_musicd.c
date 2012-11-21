@@ -485,7 +485,7 @@ exit:
   return end - buf;
 }
 
-static void musicd_feed(self_t *self)
+static int musicd_feed(self_t *self)
 {
   uint8_t *data;
   size_t size;
@@ -494,7 +494,7 @@ static void musicd_feed(self_t *self)
   if (!self->stream) {
     /* What? */
     self->client->feed = false;
-    return;
+    return 0;
   }
 
   data = stream_next(self->stream, &size, &pts);
@@ -502,7 +502,7 @@ static void musicd_feed(self_t *self)
   if (!data) {
     client_send(self->client, "packet\npayload:=0\n\n");
     self->client->feed = false;
-    return;
+    return 0;
   }
   
   client_send(self->client, "packet\n");
@@ -511,6 +511,8 @@ static void musicd_feed(self_t *self)
   client_send(self->client, "\n");
 
   client_write(self->client, (const char *)data, size);
+
+  return 0;
 }
 
 
@@ -520,6 +522,6 @@ protocol_t protocol_musicd = {
   .open = musicd_open,
   .close = (void(*)(void *)) musicd_close,
   .process = (int(*)(void *, const char *, size_t)) musicd_process,
-  .feed = (void (*)(void *)) musicd_feed
+  .feed = (int (*)(void *)) musicd_feed
 };
 

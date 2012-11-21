@@ -171,7 +171,10 @@ int client_process(client_t *client)
     /* There wasn't anything to process, we can push data to the client and the
      * outgoing buffer is empty. */
 
-    client->protocol->feed(client->self);
+    result = client->protocol->feed(client->self);
+    if (result < 0) {
+      return result;
+    }
   }
 
   return 0;

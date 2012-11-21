@@ -52,8 +52,9 @@ typedef struct protocol {
   
   /**
    * Will be called whenever the client can read data if client->feed is true,
+   * @returns < 0 if the client connection should be terminated.
    */
-  void (*feed)(void *self);
+  int (*feed)(void *self);
 
 } protocol_t;
 
