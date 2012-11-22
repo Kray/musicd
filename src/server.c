@@ -56,10 +56,12 @@ static void build_pollfds()
   
   TAILQ_FOREACH(client, &clients, clients) {
     poll_fds[i].fd = client->fd;
+
     poll_fds[i].events = POLLIN;
     if (client_has_data(client)) {
-      poll_fds[i].events = POLLOUT;
+      poll_fds[i].events |= POLLOUT;
     }
+
     ++i;
   }
   
@@ -105,9 +107,9 @@ static void *thread_func(void *data)
     }
 
     for (i = 0; i < nb_clients; ++i) {
-      client = find_client(i);
       if (poll_fds[i].revents & POLLIN
        || poll_fds[i].revents & POLLOUT) {
+        client = find_client(i);
         if (client_process(client)) {
           musicd_log(LOG_INFO, "server", "client from %s disconnected",
                      client->address);
