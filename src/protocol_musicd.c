@@ -280,7 +280,7 @@ static int method_open(self_t *self, char *p)
     client_send(self->client, "\n");
   }
   
-  self->client->feed = true;
+  client_start_feed(self->client);
   
   return 0;
 }
@@ -306,8 +306,8 @@ static int method_seek(self_t *self, char *p)
 
   client_send(self->client, "seek\n\n");
   
-  /* client->feed is now false if the entire track was streamed */
-  self->client->feed = true;
+  /* client is not feeding now if the track was finished */
+  client_start_feed(self->client);
   return 0;
 }
 
@@ -491,7 +491,7 @@ static int musicd_feed(self_t *self)
   
   if (!self->stream) {
     /* What? */
-    self->client->feed = false;
+    client_stop_feed(self->client);
     return 0;
   }
 
@@ -499,7 +499,7 @@ static int musicd_feed(self_t *self)
   
   if (!data) {
     client_send(self->client, "packet\npayload:=0\n\n");
-    self->client->feed = false;
+    client_stop_feed(self->client);
     return 0;
   }
   

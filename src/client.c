@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/poll.h>
 
 
 static int read_data(client_t *client)
@@ -118,6 +119,36 @@ void client_close(client_t *client)
   free(client);
 }
 
+int client_poll_fd(client_t *client)
+{
+  switch (client->state) {
+  case CLIENT_STATE_NORMAL:
+  case CLIENT_STATE_FEED:
+    return client->fd;
+  case CLIENT_STATE_WAIT_TASK:
+    return task_pollfd(client->wait_task);
+  }
+}
+
+int client_poll_events(client_t *client)
+{
+  int events = POLLIN;
+  if ((client->state == CLIENT_STATE_NORMAL && string_size(client->outbuf) > 0)
+   ||  client->state == CLIENT_STATE_FEED) {
+    events |= POLLOUT;
+  }
+  return events;
+}
+
+
+bool client_has_data(client_t *client)
+{
+  if (string_size(client->outbuf) > 0 || client->state == CLIENT_STATE_FEED) {
+    return true;
+  }
+  return false;
+}
+
 int client_process(client_t *client)
 {
   int result;
@@ -145,7 +176,17 @@ int client_process(client_t *client)
     client->self = client->protocol->open(client);
   }
 
-  /* First we (try to) purge the entire outgoing buffer. */
+  if (client->state == CLIENT_STATE_WAIT_TASK) {
+    /* Client was waiting for task to finish and now the task manager signaled
+     * through the pipe. */
+    client->state = CLIENT_STATE_NORMAL;
+    task_free(client->wait_task);
+    if (client->wait_callback(client->self) < 0) {
+      return -1;
+    }
+  }
+
+  /* (Try to) purge the entire outgoing buffer. */
   
   if (string_size(client->outbuf) > 0) {
     /* There is outgoing data in buffer, try to write */
@@ -166,7 +207,8 @@ int client_process(client_t *client)
     }
 
     string_remove_front(client->inbuf, result);
-  } else if (client->feed && string_size(client->outbuf) == 0) {
+  } else if (client->state == CLIENT_STATE_FEED
+          && string_size(client->outbuf) == 0) {
 
     /* There wasn't anything to process, we can push data to the client and the
      * outgoing buffer is empty. */
@@ -216,12 +258,21 @@ int client_write(client_t *client, const char *data, size_t n)
   return n;
 }
 
-
-bool client_has_data(client_t *client)
+void client_start_feed(client_t *client)
 {
-  if (string_size(client->outbuf) > 0 || client->feed) {
-    return true;
-  }
-  return false;
+  client->state = CLIENT_STATE_FEED;
+}
+
+void client_stop_feed(client_t *client)
+{
+  client->state = CLIENT_STATE_NORMAL;
+}
+
+void client_wait_task(client_t *client, task_t *task,
+                      int (*callback)(void *self))
+{
+  client->wait_task = task;
+  client->wait_callback = callback;
+  client->state = CLIENT_STATE_WAIT_TASK;
 }
 

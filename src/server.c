@@ -55,12 +55,8 @@ static void build_pollfds()
   poll_fds = calloc(poll_nfds, sizeof(struct pollfd));
   
   TAILQ_FOREACH(client, &clients, clients) {
-    poll_fds[i].fd = client->fd;
-
-    poll_fds[i].events = POLLIN;
-    if (client_has_data(client)) {
-      poll_fds[i].events |= POLLOUT;
-    }
+    poll_fds[i].fd = client_poll_fd(client);
+    poll_fds[i].events = client_poll_events(client);
 
     ++i;
   }
@@ -117,10 +113,8 @@ static void *thread_func(void *data)
           break; /* Break, because poll_fds has changed. */
         }
 
-        poll_fds[i].events = POLLIN;
-        if (client_has_data(client)) {
-          poll_fds[i].events = POLLOUT;
-        }
+        poll_fds[i].fd = client_poll_fd(client);
+        poll_fds[i].events = client_poll_events(client);
       }
     }
   }

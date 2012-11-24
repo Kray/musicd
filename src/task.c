@@ -17,6 +17,50 @@
  */
 #include "task.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static void *start(void *data)
+{
+  task_t *task = (task_t *)data;
+  task->func(task->data);
+
+  /* Write to trigger task_pollfd() */
+  write(task->pipe[1], "\0", 1);
+  return NULL;
+}
+
+task_t *task_start(void *(*func)(void *data), void* data)
+{
+  task_t *task;
+  pthread_t thread;
+
+  task = malloc(sizeof(task_t));
+  memset(task, 0, sizeof(task_t));
+  task->func = func;
+  task->data = data;
+
+  pipe(task->pipe);
+
+  pthread_create(&thread, NULL, start, task);
+  pthread_detach(thread);
+
+  return task;
+}
+
+int task_pollfd(task_t *task)
+{
+  return task->pipe[0];
+}
+
+void task_free(task_t* task)
+{
+  close(task->pipe[0]);
+  close(task->pipe[1]);
+  free(task);
+}
+
 void task_launch(void *(*func)(void *data), void* data)
 {
   pthread_t thread;

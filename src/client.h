@@ -22,11 +22,22 @@
 #include "protocol.h"
 #include "stream.h"
 #include "strings.h"
+#include "task.h"
 #include "track.h"
 
 #include <stdbool.h>
 #include <pthread.h>
 #include <sys/queue.h>
+
+/** Client state */
+typedef enum client_state {
+  /** Default state: if incoming data, call protocol->process */
+  CLIENT_STATE_NORMAL = 0,
+  /** Feeder state: if can write to socket, call protocol->feed */
+  CLIENT_STATE_FEED,
+  /** Task state: the client is waiting for a task to complete */
+  CLIENT_STATE_WAIT_TASK
+} client_state_t;
 
 typedef struct client {
   int fd;
@@ -39,10 +50,10 @@ typedef struct client {
   protocol_t *protocol;
   void *self;
   
-  /**
-   * If true, protocol->feed will be called whenever the client can read data.
-   */
-  bool feed;
+  client_state_t state;
+
+  task_t *wait_task;
+  int (*wait_callback)(void *self);
 
   TAILQ_ENTRY(client) clients;
 } client_t;
@@ -51,12 +62,31 @@ TAILQ_HEAD(client_list_t, client);
 client_t *client_new(int fd);
 void client_close(client_t *client);
 
+/**
+ * @returns file descriptor for polling
+ * @note This is not guaranteed to be the actual socket
+ */
+int client_poll_fd(client_t *client);
+/**
+ * @returns event types for polling
+ */
+int client_poll_events(client_t *client);
+
+bool client_has_data(client_t *client);
+
 int client_process(client_t *client);
+
+
+/* Internal API for protocols, do not use externally */
 
 int client_send(client_t *client, const char *format, ...);
 int client_write(client_t *client, const char *data, size_t n);
 
-bool client_has_data(client_t *client);
+void client_start_feed(client_t *client);
+void client_stop_feed(client_t *client);
+
+void client_wait_task(client_t *client, task_t *task,
+                      int (*callback)(void *self));
 
 
 #endif

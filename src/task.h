@@ -20,6 +20,26 @@
 
 #include <pthread.h>
 
+typedef struct task {
+  void *(*func)(void *);
+  void *data;
+
+  int pipe[2];
+} task_t;
+
+task_t *task_start(void *(*func)(void *), void *data);
+/**
+ * @returns file descriptor which will trigger POLLIN event once the task is
+ * finished
+ */
+int task_pollfd(task_t *task);
+/**
+ * Frees resources allocated by task_start
+ * @warning If called before the task is actually finished bad things will
+ * happen
+ */
+void task_free(task_t *task);
+
 void task_launch(void *(*func)(void *), void *data);
 
 
