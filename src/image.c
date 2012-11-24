@@ -40,6 +40,7 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
 {
   FIBITMAP *img1, *img2;
   FIMEMORY *memory;
+  double ratio;
   uint32_t msize;
   char *mbuf, *buf;
   
@@ -55,12 +56,16 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
     return NULL;
   }
 
-  if (FreeImage_GetWidth(img1) >= FreeImage_GetHeight(img1) * 1.75) {
-    /* The image is most likely a scan of both front and back sheet,
-     * crop the left (back) side off. */
+  ratio = FreeImage_GetWidth(img1) / (double) FreeImage_GetHeight(img1);
+  if (ratio >= 1.75) {
+    /* The image has so big width/height ratio that it is most likely a scan
+     * of multiple sheets placed horizontally. Crop it so that only the part
+     * at the right border is left */
     img2 = FreeImage_Copy(img1,
-                          FreeImage_GetWidth(img1) / 2.0,
-                          0, FreeImage_GetWidth(img1),
+                          FreeImage_GetWidth(img1) -
+                            FreeImage_GetWidth(img1) / round(ratio),
+                          0,
+                          FreeImage_GetWidth(img1),
                           FreeImage_GetHeight(img1));
     if (!img2) {
       if (!img1) {
