@@ -23,7 +23,6 @@
 #include "image.h"
 #include "json.h"
 #include "log.h"
-#include "md5.h"
 #include "musicd.h"
 #include "query.h"
 #include "strings.h"
