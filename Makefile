@@ -5,6 +5,7 @@ SRCS =  src/cache.c \
 	src/db.c \
 	src/format.c \
 	src/image.c \
+	src/json.c \
 	src/libav.c \
 	src/library.c \
 	src/log.c \
