@@ -245,14 +245,21 @@ int strbeginswith(const char *string, const char *what)
 
 char *strextract(const char *begin, const char *end)
 {
-  size_t size = end - begin;
+  size_t size;
   char *result;
 
-  if (!begin || !end) {
+  if (!begin) {
     return NULL;
   }
 
+  if (!end) {
+    /* Find terminating NULL */
+    for (end = begin; *end != '\0'; ++end) { }
+  }
+
   assert(begin <= end);
+
+  size = end - begin;
 
   result = malloc(size + 1);
   memcpy(result, begin, size);
