@@ -125,8 +125,9 @@ typedef struct {
 /**
  * @returns path which must be freed or NULL if not found.
  */
-char *library_album_image_path(int64_t album);
+char *library_image_path(int64_t image);
 
+int64_t library_album_image(int64_t album);
 void library_album_image_set(int64_t album, int64_t image);
 
 void library_iterate_images_by_directory

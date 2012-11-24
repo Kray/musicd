@@ -36,6 +36,7 @@ typedef struct image_task {
   int size;
 } image_task_t;
 
+void *image_task(void *data);
 void *image_album_task(void *data);
 
 #endif

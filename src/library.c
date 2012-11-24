@@ -437,10 +437,10 @@ int64_t library_image_add(int64_t url)
   return sqlite3_last_insert_rowid(db_handle());
 }
 
-char *library_album_image_path(int64_t album)
+char *library_image_path(int64_t image)
 {
   static const char *sql =
-    "SELECT urls.path AS path FROM albums JOIN images ON albums.image = images.rowid JOIN urls ON images.url = urls.rowid WHERE albums.rowid = ?";
+    "SELECT urls.path AS path FROM images JOIN urls ON images.url = urls.rowid WHERE images.rowid = ?";
   sqlite3_stmt *query;
   int result;
   char *path = NULL;;
@@ -449,7 +449,7 @@ char *library_album_image_path(int64_t album)
     return NULL;
   }
 
-  sqlite3_bind_int64(query, 1, album);
+  sqlite3_bind_int64(query, 1, image);
 
   result = sqlite3_step(query);
   if (result != SQLITE_DONE && result != SQLITE_ROW) {
@@ -461,6 +461,21 @@ char *library_album_image_path(int64_t album)
 
   sqlite3_finalize(query);
   return path;
+}
+
+int64_t library_album_image(int64_t album)
+{
+  static const char *sql =
+    "SELECT albums.image FROM albums WHERE albums.rowid = ?";
+  sqlite3_stmt *query;
+
+  if (!prepare_query(sql, &query)) {
+    return 0;
+  }
+
+  sqlite3_bind_int64(query, 1, album);
+
+  return execute_scalar(query);
 }
 
 void library_album_image_set(int64_t album, int64_t image)
@@ -557,7 +572,7 @@ int64_t library_album_by_directory(int64_t directory)
   sqlite3_stmt *query;
   
   if (!prepare_query(sql, &query)) {
-    return -1;
+    return 0;
   }
   
   sqlite3_bind_int64(query, 1, directory);

@@ -101,7 +101,8 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
   return buf;
 }
 
-void *image_album_task(void *data)
+
+void *image_task(void *data)
 {
   char *buf = NULL, *cache_name, *path;
   int size = 0;
@@ -112,11 +113,11 @@ void *image_album_task(void *data)
   
   cache_name = image_cache_name(task->id, task->size);
   
-  path = library_album_image_path(task->id);
+  path = library_image_path(task->id);
   if (path) {
     buf = image_create_thumbnail(path, task->size, &size);
   }
-  
+
   cache_set(cache_name, buf, size);
   
   free(path);

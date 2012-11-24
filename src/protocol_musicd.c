@@ -313,9 +313,9 @@ static int method_seek(self_t *self, char *p)
 
 static int method_albumimg(self_t *self, char *p)
 {
-  int64_t album, size;
+  int64_t album, size, image;
   int data_size;
-  char *name, *cache_name;
+  char *cache_name;
   char *data;
   image_task_t *task;
 
@@ -327,21 +327,19 @@ static int method_albumimg(self_t *self, char *p)
     return -1;
   }
 
-  cache_name = image_cache_name(album, size);
-  
-  /* FIXME: Some better way to test this */
-  name = library_album_image_path(album);
-  if (!name) {
+  image = library_album_image(album);
+  if (image <= 0) {
     client_send(self->client, "albumimg\nstatus=unavailable\n\n");
     goto exit;
   }
-  free(name);
+
+  cache_name = image_cache_name(image, size);
   
   if (!cache_exists(cache_name)) {
     task = malloc(sizeof(image_task_t));
-    task->id = album;
+    task->id = image;
     task->size = size;
-    task_launch(image_album_task, (void *)task);
+    task_launch(image_task, (void *)task);
     client_send(self->client, "albumimg\nstatus=retry\n\n");
     goto exit;
   }
