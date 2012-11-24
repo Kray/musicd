@@ -86,6 +86,11 @@ void query_sort(query_t *query, query_field_t field,
 int query_sort_from_string(query_t *query, const char *sort);
 
 /**
+ * @returns amount of results returned by the current filters.
+ */
+int64_t query_count(query_t *query);
+
+/**
  * Starts the query. After calling this filters or sorting can't be
  * modified anymore.
  */

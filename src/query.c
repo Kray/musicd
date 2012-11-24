@@ -69,6 +69,7 @@ query_field_t query_field_from_string(const char *string)
 
 struct query_format {
   const char *body;
+  const char *count;
   const char **maps;
 };
 
@@ -88,6 +89,7 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
 };
 static struct query_format track_query = {
   "SELECT tracks.rowid AS trackid, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
+  "SELECT COUNT(tracks.rowid) FROM tracks LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
   track_maps
 };
 
@@ -107,6 +109,7 @@ static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
 };
 static struct query_format artist_query = {
   "SELECT artists.rowid AS artistid, artists.name AS artist FROM artists",
+  "SELECT COUNT(artists.rowid) FROM artists",
   artist_maps
 };
 
@@ -126,6 +129,7 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
 };
 static struct query_format album_query = {
   "SELECT albums.rowid AS albumid, albums.name AS album FROM albums",
+  "SELECT COUNT(albums.rowid) FROM albums",
   album_maps
 };
 
@@ -344,6 +348,25 @@ static sqlite3_stmt *start(query_t *query, const char *body)
   bind_filters(query, stmt);
 
   return stmt;
+}
+
+int64_t query_count(query_t *query)
+{
+  int64_t result;
+  sqlite3_stmt *stmt = start(query, query->format->count);
+  if (!stmt) {
+    return -1;
+  }
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "query", "query_count: sqlite3_step failed");
+    return -1;
+  }
+  result = sqlite3_column_int64(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  return result;
 }
 
 int query_start(query_t *query)
