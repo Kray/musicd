@@ -198,8 +198,13 @@ int config_load_args(int argc, char **argv)
       musicd_log(LOG_ERROR, "config", "invalid cmdline flag '%s'", key);
       return -1;
     }
-    if (argc > i + 1) {
-      value = argv[++i];
+    if (argc > ++i) {
+      value = argv[i];
+      if (value[0] == '-') {
+        /* Next argument seems to be new key, just mark this value to be set */
+        --i;
+        value = "true";
+      }
     } else {
       value = "true";
     }
