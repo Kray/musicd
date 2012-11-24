@@ -138,9 +138,22 @@ static int decode_next(transcoder_t *transcoder, uint8_t *data, int src_size)
   result = avcodec_decode_audio3(transcoder->decoder, samples, &size,
                                  &transcoder->avpacket);
   if (result < 0) {
-    musicd_log(LOG_ERROR, "transcoder", "could not decode: %s",
-               strerror(AVUNERROR(result)));
-    return -1;
+    /* For some reason decoding certain files in certain situations might fail
+     * for a few packets. */
+    ++transcoder->error_counter;
+    musicd_log(LOG_VERBOSE, "transcoder", "can't decode: %s, error_counter = %d",
+               strerror(AVUNERROR(result)), transcoder->error_counter);
+    if (transcoder->error_counter > 5) {
+      musicd_log(LOG_ERROR, "transcoder", "error_counter too high, failing: %s",
+                 strerror(AVUNERROR(result)));
+      return -1;
+    }
+    return 0;
+  }
+  if (transcoder->error_counter) {
+    musicd_log(LOG_VERBOSE, "transcoder", "recovered from error_counter = %d",
+               transcoder->error_counter);
+    transcoder->error_counter = 0;
   }
 
   transcoder->buf =
@@ -178,7 +191,7 @@ static int encode_next(transcoder_t *transcoder)
   transcoder->buf_size -= transcoder->format.frame_size;
 
   transcoder->packet_size = result;
-  
+
   return result;
 }
 int transcoder_transcode(transcoder_t *transcoder, uint8_t *src, int size)
