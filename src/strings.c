@@ -252,7 +252,7 @@ char *strextract(const char *begin, const char *end)
     return NULL;
   }
 
-  assert(begin < end);
+  assert(begin <= end);
 
   result = malloc(size + 1);
   memcpy(result, begin, size);
