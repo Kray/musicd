@@ -20,20 +20,27 @@
 #include "libav.h"
 #include "log.h"
 
-static char *get_av_dict_value(AVDictionary *dict, const char *key)
+/* First try container-level metadata. If no value is found, try
+ * stream-specific metadata.
+ */
+static char *get_metadata(AVFormatContext *avctx, const char *key)
 {
-  AVDictionaryEntry *entry = av_dict_get(dict, key, NULL, 0);
+  AVDictionaryEntry *entry = av_dict_get(avctx->metadata, key, NULL, 0);
   if (!entry) {
-    return NULL;
+    entry = av_dict_get(avctx->streams[0]->metadata, key, NULL, 0);
+    if (!entry) {
+      return NULL;
+    }
   }
-  return strdup(entry->value);
+  return entry->value;
 }
 
-static char *copy_av_dict_value(AVDictionary *dict, const char *key)
+static char *copy_metadata(AVFormatContext *avctx, const char *key)
 {
-  char *result = get_av_dict_value(dict, key);
+  char *result = get_metadata(avctx, key);
   return result ? strdup(result) : NULL;
 }
+
 
 track_t *track_new()
 {
@@ -80,19 +87,13 @@ track_t *track_from_path(const char *path)
   
   track->path = strdup(path);
   
-  tmp = get_av_dict_value(avctx->metadata, "track");
-  if (!tmp) {
-    tmp = get_av_dict_value(avctx->streams[0]->metadata, "track");
-  }
+  tmp = get_metadata(avctx, "track");
   if (tmp) {
     sscanf(tmp, "%d", &track->track);
   }
   
-  track->title = copy_av_dict_value(avctx->metadata, "title");
-  if (!track->title) {
-    track->title = copy_av_dict_value(avctx->streams[0]->metadata, "title");
-  }
-  
+  track->title = copy_metadata(avctx, "title");
+
   if (!track->title) {
     /* No title in metadata, use plain filename (no basename, it's crap). */
     for (tmp = (char *)path + strlen(path);
@@ -101,21 +102,9 @@ track_t *track_from_path(const char *path)
     track->title = strdup(tmp);
   }
 
-  track->artist = copy_av_dict_value(avctx->metadata, "artist");
-  if (!track->artist) {
-    track->artist = copy_av_dict_value(avctx->streams[0]->metadata, "artist");
-  }
-  
-  track->album = copy_av_dict_value(avctx->metadata, "album");
-  if (!track->album) {
-    track->album = copy_av_dict_value(avctx->streams[0]->metadata, "album");
-  }
-  
-  track->albumartist = copy_av_dict_value(avctx->metadata, "albumartist");
-  if (!track->albumartist) {
-    track->albumartist = copy_av_dict_value(avctx->streams[0]->metadata,
-                                            "albumartist");
-  }
+  track->artist = copy_metadata(avctx, "artist");
+  track->album = copy_metadata(avctx, "album");
+  track->albumartist = copy_metadata(avctx, "albumartist");
   
   if (avctx->duration > 0) {
     track->duration = avctx->duration / (double)AV_TIME_BASE;
