@@ -25,14 +25,16 @@
 
 typedef enum {
   QUERY_FIELD_NONE = 0,
+
+  QUERY_FIELD_ID,
   QUERY_FIELD_TRACKID,
-  QUERY_FIELD_TITLE,
   QUERY_FIELD_ARTISTID,
-  QUERY_FIELD_ARTIST,
   QUERY_FIELD_ALBUMID,
+
+  QUERY_FIELD_TITLE,
+  QUERY_FIELD_ARTIST,
   QUERY_FIELD_ALBUM,
   QUERY_FIELD_TRACK,
-  QUERY_FIELD_START,
   QUERY_FIELD_DURATION,
   QUERY_FIELD_ALL,
 } query_field_t;
@@ -49,6 +51,7 @@ void query_close(query_t *query);
 
 /**
  * Applies filter @p filter in @p field.
+ * If the field is an id field, the value can be a comma-separated list.
  * @note Only one filter per field.
  */
 void query_filter(query_t *query, query_field_t field,

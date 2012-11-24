@@ -25,15 +25,30 @@
 
 static const char *field_names[QUERY_FIELD_ALL] = {
   "",
+  "id",
   "trackid",
-  "title",
   "artistid",
-  "artist",
   "albumid",
+  "title",
+  "artist",
   "album",
   "track",
-  "start",
   "duration",
+};
+
+/* All id fields. */
+static bool id_fields[QUERY_FIELD_ALL + 1] = {
+  false,
+  true,
+  true,
+  true,
+  true,
+  false,
+  false,
+  false,
+  false,
+  false,
+  false
 };
 
 query_field_t query_field_from_string(const char *string)
@@ -43,6 +58,10 @@ query_field_t query_field_from_string(const char *string)
     if (!strcmp(string, field_names[i])) {
       return i;
     }
+  }
+  if (!strcmp(string, "all") || !strcmp(string, "search")) {
+    /* Special case */
+    return QUERY_FIELD_ALL;
   }
   return QUERY_FIELD_NONE;
 }
@@ -56,57 +75,57 @@ struct query_format {
 static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   "tracks.rowid",
-  "tracks.title",
+  "tracks.rowid",
   "tracks.artist",
-  "artists.name",
   "tracks.album",
+  "tracks.title",
+  "artists.name",
   "albums.name",
   "tracks.track",
-  "tracks.start",
   "tracks.duration",
   /* Special case... */
   "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
 };
 static struct query_format track_query = {
-  "SELECT tracks.rowid AS trackid, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid ",
+  "SELECT tracks.rowid AS trackid, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
   track_maps
 };
 
 static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
+  "artists.rowid",
+  NULL,
+  "artists.rowid",
   NULL,
   NULL,
-  "artists.id",
   "artists.name",
   NULL,
   NULL,
   NULL,
-  NULL,
-  NULL,
   /* Special case... */
-  "(COALESCE(artists.title, ''))",
+  "(COALESCE(artists.name, ''))",
 };
 static struct query_format artist_query = {
-  "SELECT artists.rowid AS artistid, artists.name AS artist FROM artists ",
+  "SELECT artists.rowid AS artistid, artists.name AS artist FROM artists",
   artist_maps
 };
 
 static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
+  "albums.rowid",
   NULL,
   NULL,
+  "albums.rowid",
   NULL,
   NULL,
-  "albums.id",
   "albums.name",
-  NULL,
   NULL,
   NULL,
   /* Special case... */
   "(COALESCE(albums.name, ''))",
 };
 static struct query_format album_query = {
-  "SELECT albums.rowid AS albumid, albums.name AS album FROM albums ",
+  "SELECT albums.rowid AS albumid, albums.name AS album FROM albums",
   album_maps
 };
 
@@ -167,7 +186,25 @@ void query_close(query_t *query)
 void query_filter(query_t *query, query_field_t field,
                       const char *filter)
 {
-  query->filters[field] = filter ? stringf("%%%s%%", filter) : NULL;
+  string_t *string;
+  if (!filter) {
+    query->filters[field] = NULL;
+    return;
+  }
+  if (!id_fields[field]) {
+    query->filters[field] = stringf("%%%s%%", filter);
+    return;
+  }
+
+  /* The field is an id field. Ensure the filter is a comma-separated list of
+   * decimal numbers. */
+  string = string_new();
+  for (; *filter != '\0'; ++filter) {
+    if (*filter == ',' || (*filter >= '0' && *filter <= '9')) {
+      string_push_back(string, *filter);
+    }
+  }
+  query->filters[field] = string_release(string);
 }
 
 void query_limit(query_t *query, int64_t limit)
@@ -232,27 +269,57 @@ int query_sort_from_string(query_t *query, const char *sort)
   return 0;
 }
 
-
-int query_start(query_t *query)
+/* Generates SQL for the WHERE clause. */
+static char *build_filters(query_t *query)
 {
-  int i, n;
-  bool join;
+  int i;
   string_t *sql = string_new();
-  string_append(sql, query->format->body);
 
-  join = false;
+  bool join = false;
   for (i = 1; i <= QUERY_FIELD_ALL; ++i) {
-    if (query->filters[i] && query->format->maps[i]) {
-      if (!join) {
-        string_appendf(sql, "WHERE ");
-        join = true;
-      } else {
-        string_appendf(sql, " AND ");
-      }
+    if (!query->filters[i] || !query->format->maps[i]) {
+      continue;
+    }
+
+    if (!join) {
+      string_appendf(sql, "WHERE ");
+      join = true;
+    } else {
+      string_appendf(sql, " AND ");
+    }
+
+    if (!id_fields[i]) {
       string_appendf(sql, "%s LIKE ?", query->format->maps[i]);
+    } else {
+      /* Id-field means it can be a comma-separated list of decimal numbers.
+       * The filter is validated when it is set, so we can add it to the query
+       * directly. */
+      string_appendf(sql, "%s IN (%s)", query->format->maps[i], query->filters[i]);
     }
   }
+  return string_release(sql);
+}
 
+/* Bind filters from query to stmt */
+void bind_filters(query_t *query, sqlite3_stmt *stmt)
+{
+  int i, n;
+  for (i = 1, n = 1; i <= QUERY_FIELD_ALL; ++i) {
+    if (query->filters[i] && !id_fields[i]) {
+      sqlite3_bind_text(stmt, n, query->filters[i], -1, NULL);
+      ++n;
+    }
+  }
+}
+
+static sqlite3_stmt *start(query_t *query, const char *body)
+{
+  string_t *sql = string_new();
+  char *where = build_filters(query);
+  sqlite3_stmt *stmt;
+  
+  string_appendf(sql, "%s %s", body, where);
+  free(where);
 
   if (string_size(query->order) > 0) {
     string_appendf(sql, " ORDER BY %s", string_string(query->order));
@@ -261,20 +328,29 @@ int query_start(query_t *query)
   if (query->limit > 0 || query->offset > 0) {
     string_appendf(sql, " LIMIT %" PRId64 " OFFSET %" PRId64 "", query->limit, query->offset);
   }
-  
+
+  musicd_log(LOG_DEBUG, "query", "%s", string_string(sql));
+
   if (sqlite3_prepare_v2(db_handle(),
                         string_string(sql), -1,
-                        &query->stmt, NULL)!= SQLITE_OK) {
+                        &stmt, NULL)!= SQLITE_OK) {
     musicd_log(LOG_ERROR, "query", "can't prepare '%s': %s",
                string_string(sql), db_error());
-    return -1;
+    string_free(sql);
+    return NULL;
   }
+  string_free(sql);
 
-  for (i = 1, n = 1; i <= QUERY_FIELD_ALL; ++i) {
-    if (query->filters[i]) {
-      sqlite3_bind_text(query->stmt, n, query->filters[i], -1, NULL);
-      ++n;
-    }
+  bind_filters(query, stmt);
+
+  return stmt;
+}
+
+int query_start(query_t *query)
+{
+  query->stmt = start(query, query->format->body);
+  if (!query->stmt) {
+    return -1;
   }
 
   return 0;
@@ -296,7 +372,7 @@ int query_tracks_next(query_t *query, track_t *track)
     return 1;
   } else if (result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "query",
-               "library_query_next: sqlite3_step failed");
+               "query_tracks_next: sqlite3_step failed");
     return -1;
   }
 
@@ -311,9 +387,6 @@ int query_tracks_next(query_t *query, track_t *track)
   track->start = sqlite3_column_int(stmt, 8);
   track->duration = sqlite3_column_int(stmt, 9);
 
-  /*musicd_log(LOG_DEBUG, "query", "%i %s %i %s %s %s %i %i", track->id,
-             track->path, track->track, track->title, track->artist,
-             track->album, track->start, track->duration);*/
   return 0;
 }
 
@@ -333,7 +406,7 @@ int query_artists_next(query_t *query, query_artist_t *artist)
     return 1;
   } else if (result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "query",
-               "library_query_next: sqlite3_step failed");
+               "query_artists_next: sqlite3_step failed");
     return -1;
   }
 
@@ -359,7 +432,7 @@ int query_albums_next(query_t *query, query_album_t *album)
     return 1;
   } else if (result != SQLITE_ROW) {
     musicd_log(LOG_ERROR, "query",
-               "library_query_next: sqlite3_step failed");
+               "query_albums_next: sqlite3_step failed");
     return -1;
   }
 
