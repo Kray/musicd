@@ -35,6 +35,9 @@ typedef struct transcoder {
   
   uint8_t *packet;
   int packet_size;
+
+  int error_counter;
+
 } transcoder_t;
 
 
