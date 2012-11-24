@@ -75,12 +75,14 @@ void json_define(json_t *json, const char *name)
 
 void json_int(json_t *json, int i)
 {
+  comma(json);
   string_appendf(json->buf, "%d", i);
   json->comma = 1;
 }
 
 void json_int64(json_t *json, int64_t i)
 {
+  comma(json);
   string_appendf(json->buf, "%" PRId64 "", i);
   json->comma = 1;
 }
@@ -92,6 +94,9 @@ static const int n_escape = 7;
 void json_string(json_t *json, const char *string)
 {
   int i;
+
+  comma(json);
+
   string_push_back(json->buf, '"');
 
   if (string) {
