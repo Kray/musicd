@@ -540,7 +540,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   p2 = strchr(query, '?');
   if (!p2) {
     /* No arguments */
-    path = query;
+    path = strdup(query);
     args = NULL;
   } else {
     path = strextract(query, p2);
