@@ -121,13 +121,10 @@ void client_close(client_t *client)
 
 int client_poll_fd(client_t *client)
 {
-  switch (client->state) {
-  case CLIENT_STATE_NORMAL:
-  case CLIENT_STATE_FEED:
-    return client->fd;
-  case CLIENT_STATE_WAIT_TASK:
+  if (client->state == CLIENT_STATE_WAIT_TASK) {
     return task_pollfd(client->wait_task);
   }
+  return client->fd;
 }
 
 int client_poll_events(client_t *client)
