@@ -118,6 +118,8 @@ int main(int argc, char* argv[])
   config_set_hook("image-prefix", scan_image_prefix_changed);
   config_set("image-prefix", "front,cover,jacket");
 
+  config_set("server-name", "musicd server");
+
   if (config_load_args(argc, argv)) {
     musicd_log(LOG_FATAL, "main", "invalid command line arguments");
     print_usage(argv[0]);
