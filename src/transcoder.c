@@ -123,6 +123,7 @@ void transcoder_close(transcoder_t* transcoder)
   av_free(transcoder->decoder);
   av_free(transcoder->encoder);
   free(transcoder->packet);
+  free(transcoder->buf);
   free(transcoder);
 }
 
