@@ -226,6 +226,7 @@ static int method_open(self_t *self, char *p)
   self->stream = stream = stream_open(track);
   if (!self->stream) {
     client_error(self->client, "cannot_open");
+    track_free(track);
     return -1;
   }
   

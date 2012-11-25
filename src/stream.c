@@ -106,6 +106,7 @@ void stream_close(stream_t *stream)
   }
   transcoder_close(stream->transcoder);
   avformat_close_input(&stream->avctx);
+  track_free(stream->track);
   free(stream);
 }
 
