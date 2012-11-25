@@ -502,6 +502,128 @@ finish:
   return 0;
 }
 
+static int64_t validate_image_size(int64_t size)
+{
+  if (size == 0) {
+    return 0;
+  }
+  if (size < 16) {
+    return 16;
+  }
+  if (size > 512) {
+    return 512;
+  }
+  return size;
+}
+
+static int send_image(http_t *http, char *cache_name)
+{
+  char *data;
+  int data_size;
+  data = cache_get(cache_name, &data_size);
+  if (!data) {
+    http_reply(http, "404 Not Found");
+  } else {
+    http_send(http, "200 OK", "image/jpeg", data_size, data);
+  }
+
+  free(data);
+  free(cache_name);
+  return 0;
+}
+
+static int handle_image(http_t *http, int64_t image, int64_t size)
+{
+  char *cache_name, *path;
+  task_t *task;
+  image_task_t *task_args;
+
+  size = validate_image_size(size);
+  if (!size) {
+    path = library_image_path(image);
+    if (!path) {
+      http_reply(http, "404 Not Found");
+      return 0;
+    }
+    http_send_file(http, path, image_mime_type(path));
+    free(path);
+    return 0;
+  }
+
+  cache_name = image_cache_name(image, size);
+  if (cache_exists(cache_name)) {
+    return send_image(http, cache_name);
+  }
+
+  task_args = malloc(sizeof(image_task_t));
+  task_args->id = image;
+  task_args->size = size;
+  task = task_start(image_task, (void *)task_args);
+  client_wait_task(http->client, task, (client_callback_t)send_image, cache_name);
+  return 0;
+}
+
+static int method_image(http_t *http, const char *args)
+{
+  int64_t image, size;
+
+  image = get_int(args, "id");
+  size = get_int(args, "size");
+  if (image <= 0) {
+    http_reply(http, "400 Bad Request");
+  }
+
+  return handle_image(http, image, size);
+}
+
+static int method_album_image(http_t *http, const char *args)
+{
+  int64_t album, size, image;
+
+  album = get_int(args, "id");
+  size = get_int(args, "size");
+
+  image = library_album_image(album);
+  if (image <= 0) {
+    http_reply(http, "404 Not Found");
+    return 0;
+  }
+
+  return handle_image(http, image, size);
+}
+
+static bool album_images_cb(library_image_t *image, json_t *json)
+{
+  json_int64(json, image->id);
+  return true;
+}
+
+static int method_album_images(http_t *http, const char *args)
+{
+  int64_t album;
+  json_t json;
+
+  album = get_int(args, "id");
+  if (album <= 0) {
+    http_reply(http, "400 Bad Request");
+    return 0;
+  }
+
+  json_init(&json);
+  json_object_begin(&json);
+  json_define(&json, "images");
+  json_array_begin(&json);
+  library_iterate_images_by_album(album,
+    (bool(*)(library_image_t *, void *))album_images_cb, &json);
+  json_array_end(&json);
+  json_object_end(&json);
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+  json_finish(&json);
+
+  return 0;
+}
+
+
 struct method_entry {
   const char *name;
   int (*handler)(http_t *http, const char *args);
@@ -511,6 +633,10 @@ static struct method_entry methods[] = {
   { "/tracks", method_tracks },
   { "/artists", method_artists },
   { "/albums", method_albums },
+
+  { "/image", method_image },
+  { "/album/image", method_album_image },
+  { "/album/images", method_album_images },
 
   { NULL, NULL }
 };
