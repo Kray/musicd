@@ -36,6 +36,11 @@ char *image_cache_name(int64_t image, int size)
 }
 
 
+const char *image_mime_type(const char *path)
+{
+  return FreeImage_GetFIFMimeType(FreeImage_GetFileType(path, 0));
+}
+
 char *image_create_thumbnail(const char *path, int size, int *data_size)
 {
   FIBITMAP *img1, *img2;

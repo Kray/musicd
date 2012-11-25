@@ -25,6 +25,8 @@
  */
 char *image_cache_name(int64_t image, int size);
 
+const char *image_mime_type(const char *path);
+
 /**
  * @Returns data of thumbnail of image in @p path which fits in square of size
  * @p size, keeping aspect ratio.
