@@ -190,10 +190,22 @@ static int encode_next(transcoder_t *transcoder)
           transcoder->buf_size - transcoder->format.frame_size);
   transcoder->buf_size -= transcoder->format.frame_size;
 
+  transcoder->packet_pts +=
+    transcoder->format.frame_size / (transcoder->format.channels * (transcoder->format.bitspersample / 8)) * AV_TIME_BASE / transcoder->format.samplerate;
+
   transcoder->packet_size = result;
 
   return result;
 }
+
+void transcoder_seek(transcoder_t *transcoder, int64_t pts)
+{
+  free(transcoder->buf);
+  transcoder->buf = NULL;
+  transcoder->buf_size = 0;
+  transcoder->packet_pts = pts;
+}
+
 int transcoder_transcode(transcoder_t *transcoder, uint8_t *src, int size)
 {
   if (src) {

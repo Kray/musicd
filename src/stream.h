@@ -32,8 +32,6 @@ typedef struct stream {
   format_t src_format;
 
   transcoder_t *transcoder;
-  uint8_t *buf;
-  size_t buf_size;
   
   format_t *format;
   

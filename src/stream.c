@@ -178,6 +178,7 @@ uint8_t *stream_next(stream_t *stream, size_t *size, int64_t *pts)
       return NULL;
     }
     *size = stream->transcoder->packet_size;
+    *pts = stream->transcoder->packet_pts;
     return stream->transcoder->packet;
   } else {
   
@@ -205,6 +206,12 @@ int stream_seek(stream_t *stream, int position)
   
   stream->at_end = 0;
   
+  if (stream->transcoder) {
+    /* Approximate, but should be accurate enough */
+    transcoder_seek(stream->transcoder,
+                    (position + stream->track->start) * AV_TIME_BASE);
+  }
+
   return result;
 }
 

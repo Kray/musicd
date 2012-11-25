@@ -35,6 +35,7 @@ typedef struct transcoder {
   
   uint8_t *packet;
   int packet_size;
+  int64_t packet_pts;
 
   int error_counter;
 
@@ -45,6 +46,7 @@ transcoder_t *
   transcoder_open(format_t *format, const char *codec, int bitrate);
 void transcoder_close(transcoder_t *transcoder);
 
+void transcoder_seek(transcoder_t *transcoder, int64_t pts);
 /**
  * Packet can be retrieved from transcoder->packet and transcoder->packet_size.
  * @note Should be first called with @p src set to NULL to check if there is
