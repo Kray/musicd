@@ -31,10 +31,11 @@ Version 2
     + path string
 
 
-Version 3 (Working draft)
-=========================
+Version 3
+=========
 
 * Clarifications to syntax and types
+* Pseudo-asynchronous calls
 
 * Changes to protocol:
   * open (server)
@@ -47,5 +48,6 @@ Version 3 (Working draft)
     + albumid id
 
 * Additions to protocol:
-  + randomid (client)
-  + randomid (server)
+  + randomid
+  + albumimg
+  + lyrics

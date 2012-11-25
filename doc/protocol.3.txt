@@ -1,5 +1,5 @@
-musicd protocol, version 3 (Working draft)
-==========================================
+musicd protocol, version 3
+==========================
 
 Message syntax
 ==============
