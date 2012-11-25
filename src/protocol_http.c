@@ -159,9 +159,10 @@ static void http_reply(http_t *http, const char *status)
   client_send(http->client,
               "HTTP/1.1 %s\r\n"
               "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
-              /*"Content-Length: 0\r\n"*/
+              "Content-Type: text/plain; charset=utf-8\r\n"
+              "Content-Length: %d\r\n"
               "Access-Control-Allow-Origin: *\r\n"
-              "\r\n", status);
+              "\r\n%s", status, strlen(status), status);
 }
 
 static char *decode_url_value(const char **p)
