@@ -165,6 +165,35 @@ static void http_reply(http_t *http, const char *status)
               "\r\n%s", status, strlen(status), status);
 }
 
+static void http_send_file
+  (http_t *http, const char *path, const char *content_type)
+{
+  size_t size;
+  char *data;
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    http_reply(http, "404 Not Found");
+  }
+
+  fseek(file, 0, SEEK_END);
+  size = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  if (size <= 0) {
+    http_reply(http, "404 Not Found");
+    fclose(file);
+    return;
+  }
+
+  data = malloc(size);
+  size = fread(data, 1, size, file);
+  fclose(file);
+
+  http_send(http, NULL, content_type, size, data);
+
+  free(data);
+}
+
 static char *decode_url_value(const char **p)
 {
   char tmp;
