@@ -181,7 +181,7 @@ int client_process(client_t *client)
      * through the pipe. */
     client->state = CLIENT_STATE_NORMAL;
     task_free(client->wait_task);
-    if (client->wait_callback(client->self) < 0) {
+    if (client->wait_callback(client->self, client->wait_data) < 0) {
       return -1;
     }
   }
@@ -269,10 +269,11 @@ void client_stop_feed(client_t *client)
 }
 
 void client_wait_task(client_t *client, task_t *task,
-                      int (*callback)(void *self))
+                      client_callback_t callback, void *data)
 {
   client->wait_task = task;
   client->wait_callback = callback;
+  client->wait_data = data;
   client->state = CLIENT_STATE_WAIT_TASK;
 }
 

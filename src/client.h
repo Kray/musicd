@@ -39,6 +39,8 @@ typedef enum client_state {
   CLIENT_STATE_WAIT_TASK
 } client_state_t;
 
+typedef int (*client_callback_t)(void *self, void *data);
+
 typedef struct client {
   int fd;
 
@@ -53,7 +55,8 @@ typedef struct client {
   client_state_t state;
 
   task_t *wait_task;
-  int (*wait_callback)(void *self);
+  client_callback_t wait_callback;
+  void *wait_data;
 
   TAILQ_ENTRY(client) clients;
 } client_t;
@@ -86,7 +89,7 @@ void client_start_feed(client_t *client);
 void client_stop_feed(client_t *client);
 
 void client_wait_task(client_t *client, task_t *task,
-                      int (*callback)(void *self));
+                      client_callback_t callback, void *data);
 
 
 #endif
