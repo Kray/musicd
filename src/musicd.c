@@ -26,6 +26,7 @@
 #include "server.h"
 #include "strings.h"
 
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -100,6 +101,13 @@ static void confirm_directory()
   }
 }
 
+void start_scan_signal(int signum)
+{
+  (void)signum;
+  musicd_log(LOG_INFO, "main", "caught USR1, starting scan");
+  scan_start();
+}
+
 int main(int argc, char* argv[])
 { 
   config_init();
@@ -169,11 +177,8 @@ int main(int argc, char* argv[])
     return -1;
   }
   
-  if (!config_get_value("music-directory")) {
-    musicd_log(LOG_WARNING, "main", "music-directory not set, no scanning");
-  } else {
-    scan_start();
-  }
+  signal(SIGUSR1, start_scan_signal);
+  scan_start();
   
   while (1) {
     sleep(1);

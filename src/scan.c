@@ -38,7 +38,9 @@
 
 
 static bool thread_running = false;
-static pthread_t thread;
+
+static pthread_t scan_thread;
+static pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static time_t last_scan = 0;
 
@@ -49,30 +51,42 @@ static time_t last_scan = 0;
 static char **image_prefixes = NULL;
 
 
-static void *scan_thread_func(void *data);
-
-int scan_start()
-{
-  if (thread_running) {
-    return 0;
-  }
-  
-  if (pthread_create(&thread, NULL, scan_thread_func, NULL)) {
-    musicd_perror(LOG_ERROR, "scan", "could not create thread");
-    return -1;
-  }
-  
-  thread_running = true;
-  
-  return 0;
-}
-
-
-static int interrupted = 0;
+static int interrupted = 0, restart = 0;
 
 static void scan_signal_handler()
 {
   interrupted = 1;
+}
+
+static void *scan_thread_func(void *data);
+
+int scan_start()
+{
+  pthread_mutex_lock(&scan_mutex);
+  if (thread_running) {
+    /* Signal the scan thread to restart scanning */
+    musicd_log(LOG_VERBOSE, "scan", "signaling to restart scan");
+    restart = 1;
+    interrupted = 1;
+    pthread_mutex_unlock(&scan_mutex);
+    return 0;
+  }
+  pthread_mutex_unlock(&scan_mutex);
+
+  if (!config_get_value("music-directory")) {
+    musicd_log(LOG_WARNING, "scan", "music-directory not set, no scanning");
+    return 0;
+  }
+
+  thread_running = true;
+
+  if (pthread_create(&scan_thread, NULL, scan_thread_func, NULL)) {
+    musicd_perror(LOG_ERROR, "scan", "could not create thread");
+    return -1;
+  }
+  pthread_detach(scan_thread);
+  
+  return 0;
 }
 
 
@@ -423,7 +437,7 @@ static void scan()
   last_scan = db_meta_get_int("last-scan");
   now = time(NULL);
   
-  musicd_log(LOG_INFO, "scan", "starting scanning");
+  musicd_log(LOG_INFO, "scan", "starting");
   
   signal(SIGINT, scan_signal_handler);
   
@@ -434,11 +448,11 @@ static void scan()
   signal(SIGINT, NULL);
   
   if (interrupted) {  
-    musicd_log(LOG_INFO, "scan", "scanning interrupted");
+    musicd_log(LOG_INFO, "scan", "interrupted");
     return;
   }
   
-  musicd_log(LOG_INFO, "scan", "scanning finished");
+  musicd_log(LOG_INFO, "scan", "finished");
   
   db_meta_set_int("last-scan", now);
 }
@@ -447,16 +461,24 @@ static void *scan_thread_func(void *data)
 {
   (void)data;
   
-  pthread_detach(pthread_self());
-  
   db_simple_exec("BEGIN TRANSACTION", NULL);
   scan();
   db_simple_exec("COMMIT TRANSACTION", NULL);
 
+  pthread_mutex_lock(&scan_mutex);
   thread_running = false;
   
+  if (restart) {
+    restart = 0;
+    interrupted = 0;
+    pthread_mutex_unlock(&scan_mutex);
+    scan_start();
+    return NULL;
+  }
+  pthread_mutex_unlock(&scan_mutex);
+
   /** @todo FIXME */
-  if (interrupted) {  
+  if (interrupted) {
     exit(0);
   }
   
