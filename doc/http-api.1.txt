@@ -1,0 +1,222 @@
+musicd HTTP API 1 working draft
+-----------------
+
+Id list
+-------
+List of ids may be presented as comma-separated values
+
+Sorting
+-------
+Search functions accept sorting parameter as comma-separated values. Default is
+ascending, and prefix '-' changes it to descending.
+  Example
+  -------
+  "album,-artist,title" sorts ascending by album, then descending by artist and
+  then ascending by title
+
+Methods
+-------
+
+/musicd
+  [since: 1]
+  Returns general server info/capabilities.
+
+  Result
+  -------
+  http-api [required]
+    Version of server HTTP API
+  codecs [required]
+    Array of supported codecs
+  name
+    Server name string
+  version
+    Server software version string
+
+  Example
+  -------
+  /musicd
+  {"http-api":1,
+   "name":"example musicd server",
+   "version":"0.3.0",
+   "codecs":["mp3"]}
+
+
+/tracks
+  [since: 1]
+  Returns tracks matching query parameters
+  
+  Request
+  ----------
+  id, trackid
+    Comma-separated list of track ids
+  artistid
+    Comma-separated list of artist ids
+  albumid
+    Comma-separated list of album ids
+  search
+    String to search from track title, artist name and album name
+  title
+    String to search from track title
+  artist
+    String to search from artist name
+  album
+    String to search from album name
+  sort
+    Sorting string
+  total
+    If set, total number of results for query is returned
+  offset
+    How many results are omitted from the beginning of the result set
+  limit
+    How many results is returned at most
+
+  Result
+  ------
+  total [if: request: total]
+    Total number of results for query ignoring limit and offset
+  tracks [required]
+    Array of track results:
+    id
+      Track id
+    track
+      Track number on album
+    title
+      Track title
+    artistid
+      Artist id
+    artist
+      Artist name
+    albumid
+      Album id
+    album
+      Album name
+    duration
+      Duration of the track in seconds
+
+  Example
+  -------
+  /tracks?id=4,6
+  {"tracks":[
+     {"id":4,
+      "track":1,
+      "title":"Track name",
+      "artistid":7,
+      "artist":"Artist name",
+      "albumid":16,
+      "album":"Album name",
+      "duration":234},
+     { "id":6,
+       ... }]}
+
+  /tracks?search=abcd&total&offset=2&limit=3
+  {"total":6,
+   "tracks":[
+     { ...
+      "title":"abcd",
+      ... },
+     { ...
+      "artist":"artist abcd",
+      ... },
+     { ...
+      "album":"every abcd song",
+      ... }]}
+
+      
+/artists
+  [since: 1]
+  Returns artists matching query parameters
+
+  Request
+  -------
+  id, artistid
+    Comma-separated list of artist ids
+  search, artist
+    String to search from artist name
+  sort
+    Sorting string
+  total
+    If set, total number of results for query is returned
+  offset
+    How many results are omitted from the beginning of the result set
+  limit
+    How many results is returned at most
+
+  Result
+  ------
+  total [if: request:total]
+    Total number of results for query ignoring limit and offset
+  artists [required]
+    Array of artist results:
+    id
+      Artist id
+    artist
+      Artist name
+
+
+/albums
+  [since: 1]
+  Returns albums matching query parameters
+
+  Request
+  -------
+  id, albumid
+    Comma-separated list of album ids
+  search, album
+    String to search from album name
+  sort
+    Sorting string
+  total
+    If set, total number of results for query is returned
+  offset
+    How many results are omitted from the beginning of the result set
+  limit
+    How many results is returned at most
+
+/image
+  [since: 1]
+  Returns requested image in requested size
+
+  Request
+  -------
+  id [required]
+    Image  id
+  size
+    Image size, if 0 or not set the original image file is returned
+
+  Result
+  ------
+  Image file
+
+/album/image
+  [since: 1]
+  Returns primary image of requested album in requested size
+
+  Request
+  -------
+  id [required]
+    Album id
+  size
+    Image size, if 0 or not set the original image file is returned
+
+  Result
+  ------
+  Image file
+
+/album/images
+  [since: 1]
+  Returns image ids associated with requested album
+
+  Request
+  -------
+  id [required]
+    Album id
+
+  Result
+  ------
+  images [required]
+    Array of image ids
+
+  Example
+  -------
+  /album/images?id=23
+  {"images":[23,24,25,26,27,28]}
