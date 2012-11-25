@@ -269,6 +269,42 @@ static int64_t args_to_total(const char *args, query_t *query)
   return query_count(query);
 }
 
+static int method_musicd(http_t *http, const char *args)
+{
+  (void)args;
+  json_t json;
+
+  json_init(&json);
+  json_object_begin(&json);
+  json_define(&json, "name"); json_string(&json, config_get("server-name"));
+  json_define(&json, "version");  json_string(&json, MUSICD_VERSION_STRING);
+  json_define(&json, "http-api"); json_string(&json, "1");
+
+  json_define(&json, "codecs");
+  json_array_begin(&json);
+    json_string(&json, "mp3");
+  json_array_end(&json);
+  json_define(&json, "bitrate-min"); json_int(&json, 64000);
+  json_define(&json, "bitrate-max"); json_int(&json, 320000);
+
+  json_define(&json, "image-sizes");
+  json_array_begin(&json);
+    json_int(&json, 16);
+    json_int(&json, 32);
+    json_int(&json, 64);
+    json_int(&json, 128);
+    json_int(&json, 256);
+    json_int(&json, 512);
+  json_array_end(&json);
+
+  json_object_end(&json);
+
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+
+  json_finish(&json);
+  return 0;
+}
+
 static int method_tracks(http_t *http, const char *args)
 {
   query_t *query = query_tracks_new();
@@ -442,9 +478,11 @@ struct method_entry {
   int (*handler)(http_t *http, const char *args);
 };
 static struct method_entry methods[] = {
+  { "/musicd", method_musicd },
   { "/tracks", method_tracks },
   { "/artists", method_artists },
   { "/albums", method_albums },
+
   { NULL, NULL }
 };
 
