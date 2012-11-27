@@ -172,6 +172,7 @@ Methods
   limit
     How many results is returned at most
 
+
 /image
   [since: 1]
   Returns requested image in requested size
@@ -187,20 +188,18 @@ Methods
   ------
   Image file
 
+
 /album/image
   [since: 1]
-  Returns primary image of requested album in requested size
+  Redirects to /image with id of the album's main image passing size
 
   Request
   -------
   id [required]
     Album id
   size
-    Image size, if 0 or not set the original image file is returned
+    Image size
 
-  Result
-  ------
-  Image file
 
 /album/images
   [since: 1]

@@ -532,11 +532,20 @@ static int send_image(http_t *http, char *cache_name)
   return 0;
 }
 
-static int handle_image(http_t *http, int64_t image, int64_t size)
+static int method_image(http_t *http, const char *args)
 {
+  int64_t image, size;
   char *cache_name, *path;
   task_t *task;
   image_task_t *task_args;
+
+  image = get_int(args, "id");
+  size = get_int(args, "size");
+
+  if (image <= 0) {
+    http_reply(http, "400 Bad Request");
+    return 0;
+  }
 
   size = validate_image_size(size);
   if (!size) {
@@ -563,19 +572,6 @@ static int handle_image(http_t *http, int64_t image, int64_t size)
   return 0;
 }
 
-static int method_image(http_t *http, const char *args)
-{
-  int64_t image, size;
-
-  image = get_int(args, "id");
-  size = get_int(args, "size");
-  if (image <= 0) {
-    http_reply(http, "400 Bad Request");
-  }
-
-  return handle_image(http, image, size);
-}
-
 static int method_album_image(http_t *http, const char *args)
 {
   int64_t album, size, image;
@@ -589,7 +585,13 @@ static int method_album_image(http_t *http, const char *args)
     return 0;
   }
 
-  return handle_image(http, image, size);
+  client_send(http->client,
+              "HTTP/1.1 302 Found\r\n"
+              "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
+              "Location: /image?id=%" PRId64 "&size=%" PRId64 "\r\n"
+              "Access-Control-Allow-Origin: *\r\n"
+              "\r\n", image, size);
+  return 0;
 }
 
 static bool album_images_cb(library_image_t *image, json_t *json)
