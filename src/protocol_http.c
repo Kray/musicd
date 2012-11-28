@@ -202,7 +202,7 @@ static void http_send_file
   free(data);
 }
 
-static char *decode_url_value(const char **p)
+static char *decode_url(const char **p)
 {
   char tmp;
   string_t *result = string_new();
@@ -225,6 +225,22 @@ static char *decode_url_value(const char **p)
     string_push_back(result, tmp);
     
     ++*p;
+  }
+  return string_release(result);
+}
+
+static char *encode_url(const char *p)
+{
+  string_t *result = string_new();
+
+  for (; *p != '\0'; ++p) {
+    if ((*p >= 'A' && *p <= 'Z')
+     || (*p >= 'a' && *p <= 'z')
+     || (*p >= '0' && *p <= '9')) {
+      string_push_back(result, *p);
+      continue;
+    }
+    string_appendf(result, "%%%2hhx", *p);
   }
   return string_release(result);
 }
@@ -261,7 +277,7 @@ static int parse_query_filters(http_t *http, query_t *query)
     if (!field) {
       for (; *p != '\0' && *p != '&'; ++p) { }
     } else {
-      value = decode_url_value(&p);
+      value = decode_url(&p);
       if (value) {
         query_filter(query, field, value);
         free(value);
@@ -338,6 +354,54 @@ static int method_musicd(http_t *http)
   http_send_text(http, "200 OK", "text/json", json_result(&json));
 
   json_finish(&json);
+  return 0;
+}
+
+static int method_auth(http_t *http)
+{
+  static const char *response_ok = "{\"auth\":\"ok\"}";
+  static const char *response_error = "{\"auth\":\"error\"}";
+
+  char *user, *password;
+  char *set_user = NULL, *set_password = NULL;
+
+  user = args_str(http, "user");
+  password = args_str(http, "password");
+
+  if (!user || !password) {
+    http_reply(http, "400 Bad Requst");
+    goto finish;
+  }
+
+  if (strcmp(user, config_get("user"))
+   || strcmp(password, config_get("password"))) {
+
+    musicd_log(LOG_VERBOSE, "protocol_http", "%s failed auth",
+               http->client->address);
+    http_send_text(http, "200 OK", "text/json", response_error);
+
+  } else {
+    set_user = encode_url(config_get("user"));
+    set_password = encode_url(config_get("password"));
+    musicd_log(LOG_VERBOSE, "protocol_http", "%s authed",
+               http->client->address);
+    client_send(http->client,
+                "HTTP/1.1 200 OK\r\n"
+                "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
+                "Set-Cookie: user=%s;\r\n"
+                "Set-Cookie: password=%s;\r\n"
+                "Content-Type: text/json; charset=utf-8\r\n"
+                "Content-Length: %d\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "\r\n%s", set_user, set_password,
+                strlen(response_ok), response_ok);
+  }
+
+finish:
+  free(user);
+  free(password);
+  free(set_user);
+  free(set_password);
   return 0;
 }
 
@@ -632,22 +696,27 @@ static int method_album_images(http_t *http)
   return 0;
 }
 
+/* Allow access without authorization */
+#define NO_AUTH 0x02
+
 struct method_entry {
   const char *name;
   int (*handler)(http_t *http);
+  int flags;
 };
 static struct method_entry methods[] = {
-  { "/musicd", method_musicd },
+  { "/musicd", method_musicd, NO_AUTH },
+  { "/auth", method_auth, NO_AUTH },
 
-  { "/tracks", method_tracks },
-  { "/artists", method_artists },
-  { "/albums", method_albums },
+  { "/tracks", method_tracks, 0 },
+  { "/artists", method_artists, 0 },
+  { "/albums", method_albums, 0 },
 
-  { "/image", method_image },
-  { "/album/image", method_album_image },
-  { "/album/images", method_album_images },
+  { "/image", method_image, 0 },
+  { "/album/image", method_album_image, 0 },
+  { "/album/images", method_album_images, 0 },
 
-  { NULL, NULL }
+  { NULL, NULL, 0 }
 };
 
 struct mime_entry {
@@ -663,6 +732,35 @@ static struct mime_entry mime_types[] = {
   { NULL, NULL },
 };
 
+/* Tests if the user is authorized */
+static int is_authorized(http_t *http)
+{
+  int result;
+  char *encoded, *search;
+
+  /* TODO: real cookie parsing... */
+  encoded = encode_url(config_get("user"));
+  search = stringf("user=%s", encoded);
+  if (!strstr(http->request, search)) {
+    result = 0;
+    goto finish;
+  }
+
+  encoded = encode_url(config_get("password"));
+  search = stringf("password=%s", encoded);
+  if (!strstr(http->request, search)) {
+    result = 0;
+    goto finish;
+  }
+
+  result = 1;
+
+finish:
+  free(encoded);
+  free(search);
+  return result;
+}
+
 static int process_request(http_t *http)
 {
   struct method_entry *method;
@@ -671,7 +769,12 @@ static int process_request(http_t *http)
 
   for (method = methods; method->name != NULL; ++method) {
     if (!strcmp(method->name, http->path)) {
-      musicd_log(LOG_DEBUG, "protocol_http", "DERP");
+      if (!(method->flags & NO_AUTH)) {
+        if (!is_authorized(http)) {
+          http_reply(http, "403 Forbidden");
+          return 0;
+        }
+      }
       return method->handler(http);
     }
   }

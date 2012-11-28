@@ -20,6 +20,7 @@ Methods
 /musicd
   [since: 1]
   Returns general server info/capabilities.
+  This method must be available even if the client is not authorized.
 
   Result
   -------
@@ -39,6 +40,25 @@ Methods
    "name":"example musicd server",
    "version":"0.3.0",
    "codecs":["mp3"]}
+
+
+/auth
+  [since: 1]
+  Authorizes the client.
+  This method must be available even if the client has not authorized.
+  If successful, the server shall set appropriate cookies to the client.
+
+  Result
+  ------
+  user [required]
+    User name
+  password [required]
+    User password
+
+  Result
+  ------
+  auth [required]
+    Either "ok" or "error"
 
 
 /tracks
