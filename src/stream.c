@@ -143,9 +143,10 @@ static int read_next(stream_t *stream)
     }
     break;
   }
-  
+
+  /* FIXME: Need accurate start and duration times in database */
   if (floor(stream->avpacket.pts * av_q2d(stream->avctx->streams[0]->time_base))
-      >= stream->track->start + stream->track->duration) {
+      > stream->track->start + stream->track->duration) {
     stream->at_end = 1;
     return -1;
   }
