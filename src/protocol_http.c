@@ -180,6 +180,7 @@ static void http_send_file
   FILE *file = fopen(path, "rb");
   if (!file) {
     http_reply(http, "404 Not Found");
+    return;
   }
 
   fseek(file, 0, SEEK_END);
