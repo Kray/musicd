@@ -649,16 +649,67 @@ static struct method_entry methods[] = {
   { NULL, NULL }
 };
 
+struct mime_entry {
+  const char *extension;
+  const char *mime;
+};
+static struct mime_entry mime_types[] = {
+  { "html", "text/html" },
+  { "css", "text/css" },
+  { "js", "text/x-javascript" },
+  { "jpg", "image/jpeg" },
+  { "png", "image/png" },
+  { NULL, NULL },
+};
+
 static int process_request(http_t *http)
 {
-  struct method_entry *entry;
-  for (entry = methods; entry->name != NULL; ++entry) {
-    if (!strcmp(entry->name, http->path)) {
-      return entry->handler(http);
+  struct method_entry *method;
+  char *path, *ext;
+  struct mime_entry *mime;
+
+  for (method = methods; method->name != NULL; ++method) {
+    if (!strcmp(method->name, http->path)) {
+      musicd_log(LOG_DEBUG, "protocol_http", "DERP");
+      return method->handler(http);
     }
   }
 
-  http_reply(http, "404 Not Found");
+  /* Not any method, try HTTP root */
+  if (!config_get_value("http-root")) {
+    http_reply(http, "404 Not Found");
+    return 0;
+  }
+
+  if (!strcmp(http->path, "/")) {
+    path = stringf("%s/index.html", config_to_path("http-root"));
+    http_send_file(http, path, "text/html");
+    free(path);
+    return 0;
+  }
+
+  path = stringf("%s/%s", config_to_path("http-root"), http->path);
+  if (strstr(path, "/../")) {
+    /* Let's just assume someone is doing something bad */
+    http_reply(http, "403 Forbidden");
+    free(path);
+    return 0;
+  }
+
+  musicd_log(LOG_DEBUG, "protocol_http", "static path: %s", path);
+
+  for (ext = path + strlen(path); *(ext - 1) != '.' && *(ext - 1) != '/';
+       --ext) { }
+
+  for (mime = mime_types; mime->extension != NULL; ++mime) {
+    if (!strcmp(mime->extension, ext)) {
+      break;
+    }
+  }
+
+  http_send_file(http, path,
+                 mime->mime ? mime->mime : "application/octet-stream");
+  free(path);
   return 0;
 }
 
@@ -725,6 +776,12 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   /* Extract HTTP query */
   for (p1 = buf; *p1 != ' '; ++p1) { }
   ++p1;
+  if (*p1 != '/') {
+    /* Not valid */
+    http_reply(http, "400 Bad Request");
+    return -1;
+  }
+
   for (p2 = p1; *p2 != ' '; ++p2) {
     if (*p2 == '\0' || *p2 == '\r' || *p2 == '\n') {
       musicd_log(LOG_VERBOSE, "protocol_http",
@@ -734,6 +791,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
       return -1;
     }
   }
+
   http->query = strextract(p1, p2);
   
   musicd_log(LOG_VERBOSE, "protocol_http", "query: %s", http->query);
