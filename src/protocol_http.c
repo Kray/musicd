@@ -32,13 +32,20 @@
 
 typedef struct http {
   client_t *client;
+
+  /* Current request */
+  const char *request;
+  char *query;
+  char *path;
+  char *args;
+
 } http_t;
 
-static const char *get_ptr(const char *args, const char *key)
+static const char *args_ptr(http_t *http, const char *key)
 {
-  const char *p = args;
+  const char *p = http->args;
 
-  if (!args) {
+  if (!http->args) {
     return NULL;
   }
 
@@ -56,9 +63,9 @@ static const char *get_ptr(const char *args, const char *key)
   return NULL;
 }
 
-static int64_t get_int(const char *args, const char *key)
+static int64_t args_int(http_t *http, const char *key)
 {
-  const char *p = get_ptr(args, key);
+  const char *p = args_ptr(http, key);
   int64_t result = 0;
 
   if (!p) {
@@ -75,15 +82,15 @@ static int64_t get_int(const char *args, const char *key)
   return result;
 }
 
-static bool get_bool(const char *args, const char *key)
+static bool args_bool(http_t *http, const char *key)
 {
-  const char *p = get_ptr(args, key);
+  const char *p = args_ptr(http, key);
   return p ? true : false;
 }
 
-static char *get_str(const char *args, const char *key)
+static char *args_str(http_t *http, const char *key)
 {
-  const char *p = get_ptr(args, key);
+  const char *p = args_ptr(http, key);
   string_t *result;
   char tmp;
 
@@ -223,9 +230,9 @@ static char *decode_url_value(const char **p)
 
 
 /** Iterates through all arguments and sets all valid filters to query. */
-static int args_to_query_filters(const char *args, query_t *query)
+static int parse_query_filters(http_t *http, query_t *query)
 {
-  const char *p;
+  const char *args = http->args, *p;
   char *name, *value;
   query_field_t field;
 
@@ -268,10 +275,10 @@ static int args_to_query_filters(const char *args, query_t *query)
   return 0;
 }
 
-static void args_to_query_bounds(const char *args, query_t *query)
+static void parse_query_bounds(http_t *http, query_t *query)
 {
-  int64_t limit = get_int(args, "limit"),
-          offset = get_int(args, "offset");
+  int64_t limit = args_int(http, "limit"),
+          offset = args_int(http, "offset");
   if (limit > 0) {
     query_limit(query, limit);
   }
@@ -280,9 +287,9 @@ static void args_to_query_bounds(const char *args, query_t *query)
   }
 }
 
-static void args_to_query_sort(const char *args, query_t *query)
+static void parse_query_sort(http_t *http, query_t *query)
 {
-  char *sort = get_str(args, "sort");
+  char *sort = args_str(http, "sort");
   if (!sort) {
     return;
   }
@@ -290,17 +297,16 @@ static void args_to_query_sort(const char *args, query_t *query)
   free(sort);
 }
 
-static int64_t args_to_total(const char *args, query_t *query)
+static int64_t parse_total(http_t *http, query_t *query)
 {
-  if (!get_bool(args, "total")) {
+  if (!args_bool(http, "total")) {
     return 0;
   }
   return query_count(query);
 }
 
-static int method_musicd(http_t *http, const char *args)
+static int method_musicd(http_t *http)
 {
-  (void)args;
   json_t json;
 
   json_init(&json);
@@ -334,24 +340,24 @@ static int method_musicd(http_t *http, const char *args)
   return 0;
 }
 
-static int method_tracks(http_t *http, const char *args)
+static int method_tracks(http_t *http)
 {
   query_t *query = query_tracks_new();
   int64_t total;
   json_t json;
   track_t track;
 
-  args_to_query_filters(args, query);
+  parse_query_filters(http, query);
 
-  total = args_to_total(args, query);
+  total = parse_total(http, query);
   if (total < 0) {
     musicd_log(LOG_ERROR, "protocol_http", "query_count failed");
     http_reply(http, "500 Internal Server Error");
     goto finish;
   }
   
-  args_to_query_bounds(args, query);
-  args_to_query_sort(args, query);
+  parse_query_bounds(http, query);
+  parse_query_sort(http, query);
   
   if(query_start(query)) {
     musicd_log(LOG_ERROR, "protocol_http", "query_start failed");
@@ -394,24 +400,24 @@ finish:
   return 0;
 }
 
-static int method_artists(http_t *http, const char *args)
+static int method_artists(http_t *http)
 {
   query_t *query = query_artists_new();
   int64_t total;
   json_t json;
   query_artist_t artist;
 
-  args_to_query_filters(args, query);
+  parse_query_filters(http, query);
 
-  total = args_to_total(args, query);
+  total = parse_total(http, query);
   if (total < 0) {
     musicd_log(LOG_ERROR, "protocol_http", "query_count failed");
     http_reply(http, "500 Internal Server Error");
     goto finish;
   }
   
-  args_to_query_bounds(args, query);
-  args_to_query_sort(args, query);
+  parse_query_bounds(http, query);
+  parse_query_sort(http, query);
   
   if(query_start(query)) {
     musicd_log(LOG_ERROR, "protocol_http", "query_start failed");
@@ -448,24 +454,24 @@ finish:
   return 0;
 }
 
-static int method_albums(http_t *http, const char *args)
+static int method_albums(http_t *http)
 {
   query_t *query = query_albums_new();
   int64_t total;
   json_t json;
   query_album_t album;
 
-  args_to_query_filters(args, query);
+  parse_query_filters(http, query);
 
-  total = args_to_total(args, query);
+  total = parse_total(http, query);
   if (total < 0) {
     musicd_log(LOG_ERROR, "protocol_http", "query_count failed");
     http_reply(http, "500 Internal Server Error");
     goto finish;
   }
   
-  args_to_query_bounds(args, query);
-  args_to_query_sort(args, query);
+  parse_query_bounds(http, query);
+  parse_query_sort(http, query);
   
   if(query_start(query)) {
     musicd_log(LOG_ERROR, "protocol_http", "query_start failed");
@@ -532,15 +538,15 @@ static int send_image(http_t *http, char *cache_name)
   return 0;
 }
 
-static int method_image(http_t *http, const char *args)
+static int method_image(http_t *http)
 {
   int64_t image, size;
   char *cache_name, *path;
   task_t *task;
   image_task_t *task_args;
 
-  image = get_int(args, "id");
-  size = get_int(args, "size");
+  image = args_int(http, "id");
+  size = args_int(http, "size");
 
   if (image <= 0) {
     http_reply(http, "400 Bad Request");
@@ -572,12 +578,12 @@ static int method_image(http_t *http, const char *args)
   return 0;
 }
 
-static int method_album_image(http_t *http, const char *args)
+static int method_album_image(http_t *http)
 {
   int64_t album, size, image;
 
-  album = get_int(args, "id");
-  size = get_int(args, "size");
+  album = args_int(http, "id");
+  size = args_int(http, "size");
 
   image = library_album_image(album);
   if (image <= 0) {
@@ -600,12 +606,12 @@ static bool album_images_cb(library_image_t *image, json_t *json)
   return true;
 }
 
-static int method_album_images(http_t *http, const char *args)
+static int method_album_images(http_t *http)
 {
   int64_t album;
   json_t json;
 
-  album = get_int(args, "id");
+  album = args_int(http, "id");
   if (album <= 0) {
     http_reply(http, "400 Bad Request");
     return 0;
@@ -625,13 +631,13 @@ static int method_album_images(http_t *http, const char *args)
   return 0;
 }
 
-
 struct method_entry {
   const char *name;
-  int (*handler)(http_t *http, const char *args);
+  int (*handler)(http_t *http);
 };
 static struct method_entry methods[] = {
   { "/musicd", method_musicd },
+
   { "/tracks", method_tracks },
   { "/artists", method_artists },
   { "/albums", method_albums },
@@ -643,12 +649,12 @@ static struct method_entry methods[] = {
   { NULL, NULL }
 };
 
-static int process_query(http_t *http, const char *path, const char *args)
+static int process_request(http_t *http)
 {
   struct method_entry *entry;
   for (entry = methods; entry->name != NULL; ++entry) {
-    if (!strcmp(entry->name, path)) {
-      return entry->handler(http, args);
+    if (!strcmp(entry->name, http->path)) {
+      return entry->handler(http);
     }
   }
 
@@ -695,7 +701,6 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   (void)buf_size;
   http_t *http = (http_t *)self;
   const char *end, *p1, *p2;
-  char *query, *path, *args;
   int result = 0;
 
   /* Do we have all headers? */
@@ -715,6 +720,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
     http_reply(http, "400 Bad Request");
     return -1;
   }
+  http->request = buf;
   
   /* Extract HTTP query */
   for (p1 = buf; *p1 != ' '; ++p1) { }
@@ -728,28 +734,26 @@ static int http_process(void *self, const char *buf, size_t buf_size)
       return -1;
     }
   }
-  query = strextract(p1, p2);
+  http->query = strextract(p1, p2);
   
-  musicd_log(LOG_VERBOSE, "protocol_http", "query: %s", query);
+  musicd_log(LOG_VERBOSE, "protocol_http", "query: %s", http->query);
 
   /* Extract path and arguments from query */
-  p2 = strchr(query, '?');
+  p2 = strchr(http->query, '?');
   if (!p2) {
     /* No arguments */
-    path = strdup(query);
-    args = NULL;
+    http->path = strdup(http->query);
+    http->args = NULL;
   } else {
-    path = strextract(query, p2);
-    args = strextract(p2 + 1, NULL);
+    http->path = strextract(http->query, p2);
+    http->args = strextract(p2 + 1, NULL);
   }
   
-  musicd_log(LOG_DEBUG, "protocol_http", "path: %s, args: %s", path, args);
-  
-  result = process_query(http, path, args);
+  result = process_request(http);
 
-  free(query);
-  free(path);
-  free(args);
+  free(http->query);
+  free(http->path);
+  free(http->args);
 
   if (result < 0) {
     return result;
