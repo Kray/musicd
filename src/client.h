@@ -36,7 +36,9 @@ typedef enum client_state {
   /** Feeder state: if can write to socket, call protocol->feed */
   CLIENT_STATE_FEED,
   /** Task state: the client is waiting for a task to complete */
-  CLIENT_STATE_WAIT_TASK
+  CLIENT_STATE_WAIT_TASK,
+  /** Drain state: connection should be terminated once outbuf is empty */
+  CLIENT_STATE_DRAIN
 } client_state_t;
 
 typedef int (*client_callback_t)(void *self, void *data);
@@ -91,5 +93,6 @@ void client_stop_feed(client_t *client);
 void client_wait_task(client_t *client, task_t *task,
                       client_callback_t callback, void *data);
 
+void client_drain(client_t *client);
 
 #endif

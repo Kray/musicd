@@ -129,11 +129,20 @@ int client_poll_fd(client_t *client)
 
 int client_poll_events(client_t *client)
 {
-  int events = POLLIN;
-  if ((client->state == CLIENT_STATE_NORMAL && string_size(client->outbuf) > 0)
-   ||  client->state == CLIENT_STATE_FEED) {
+  int events = 0;
+
+  if (client->state == CLIENT_STATE_NORMAL
+   || client->state == CLIENT_STATE_FEED
+   || client->state == CLIENT_STATE_WAIT_TASK) {
+    events |= POLLIN;
+  }
+
+  if (string_size(client->outbuf) > 0
+   || client->state == CLIENT_STATE_FEED
+   || client->state == CLIENT_STATE_DRAIN) {
     events |= POLLOUT;
   }
+
   return events;
 }
 
@@ -184,12 +193,19 @@ int client_process(client_t *client)
   }
 
   /* (Try to) purge the entire outgoing buffer. */
-  
+
   if (string_size(client->outbuf) > 0) {
     /* There is outgoing data in buffer, try to write */
     result = write_data(client);
     if (result < 0) {
       return result;
+    }
+  }
+
+  if (client->state == CLIENT_STATE_DRAIN) {
+    if (string_size(client->outbuf) == 0) {
+      /* Client was draining, and now it is done - terminate */
+      return -1;
     }
   }
 
@@ -272,5 +288,10 @@ void client_wait_task(client_t *client, task_t *task,
   client->wait_callback = callback;
   client->wait_data = data;
   client->state = CLIENT_STATE_WAIT_TASK;
+}
+
+void client_drain(client_t *client)
+{
+  client->state = CLIENT_STATE_DRAIN;
 }
 
