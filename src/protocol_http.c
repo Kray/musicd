@@ -129,6 +129,41 @@ static char *args_str(http_t *http, const char *key)
 }
 
 /**
+ * Begins HTTP headers
+ * @param status default 200 OK if NULL
+ */
+static void http_begin_headers
+  (http_t *http,
+   const char *status,
+   const char *content_type,
+   size_t content_length)
+{
+  client_send(http->client, "HTTP/1.1 %s\r\n", status ? status : "200 OK");
+  client_send(http->client, "Server: musicd/" MUSICD_VERSION_STRING "\r\n");
+  client_send(http->client, "Content-Length: %d\r\n", content_length);
+  if (content_type) {
+    client_send(http->client, "Content-Type: %s; charset=utf-8\r\n",
+                content_type);
+  }
+  /* Cross-site scripting - allows accessing the server with browser from
+   * different origin, but can be a security hole. */
+  if (config_to_bool("enable-xss")) {
+    client_send(http->client, "Access-Control-Allow-Origin: *\r\n");
+    client_send(http->client, "Access-Control-Allow-Credentials: *\r\n");
+  }
+}
+
+static void http_send_headers
+  (http_t *http,
+   const char *status,
+   const char *content_type,
+   size_t content_length)
+{
+  http_begin_headers(http, status, content_type, content_length);
+  client_send(http->client, "\r\n");
+}
+
+/**
  * @param status default 200 OK if NULL
  * @param content_type default text/html if NULL
  */
@@ -139,14 +174,8 @@ static void http_send
    size_t content_length,
    const char *content)
 {
-  client_send(http->client,
-              "HTTP/1.1 %s\r\n"
-              "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
-              "Content-Type: %s; charset=utf-8\r\n"
-              "Content-Length: %d\r\n"
-              "Access-Control-Allow-Origin: *\r\n"
-              "\r\n",
-              status ? status : "200 OK",
+  http_send_headers(http,
+              status,
               content_type ? content_type : "text/html",
               content_length);
   client_write(http->client, content, content_length);
@@ -163,13 +192,7 @@ static void http_send_text
 
 static void http_reply(http_t *http, const char *status)
 {
-  client_send(http->client,
-              "HTTP/1.1 %s\r\n"
-              "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
-              "Content-Type: text/plain; charset=utf-8\r\n"
-              "Content-Length: %d\r\n"
-              "Access-Control-Allow-Origin: *\r\n"
-              "\r\n%s", status, strlen(status), status);
+  http_send_headers(http, status, NULL, 0);
 }
 
 static void http_send_file
@@ -385,16 +408,13 @@ static int method_auth(http_t *http)
     set_password = encode_url(config_get("password"));
     musicd_log(LOG_VERBOSE, "protocol_http", "%s authed",
                http->client->address);
+
+    http_begin_headers(http, "200 OK", "text/json", strlen(response_ok));
     client_send(http->client,
-                "HTTP/1.1 200 OK\r\n"
-                "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
                 "Set-Cookie: user=%s;\r\n"
                 "Set-Cookie: password=%s;\r\n"
-                "Content-Type: text/json; charset=utf-8\r\n"
-                "Content-Length: %d\r\n"
-                "Access-Control-Allow-Origin: *\r\n"
-                "\r\n%s", set_user, set_password,
-                strlen(response_ok), response_ok);
+                "\r\n%s",
+                set_user, set_password, response_ok);
   }
 
 finish:
@@ -660,7 +680,6 @@ static int method_album_image(http_t *http)
               "HTTP/1.1 302 Found\r\n"
               "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
               "Location: /image?id=%" PRId64 "&size=%" PRId64 "\r\n"
-              "Access-Control-Allow-Origin: *\r\n"
               "\r\n", image, size);
   return 0;
 }
