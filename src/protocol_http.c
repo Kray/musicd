@@ -39,6 +39,7 @@ typedef struct http {
   char *path;
   char *args;
 
+  stream_t *stream;
 } http_t;
 
 static const char *args_ptr(http_t *http, const char *key)
@@ -717,6 +718,69 @@ static int method_album_images(http_t *http)
   return 0;
 }
 
+static int feed_write(void *opaque, uint8_t *buf, int buf_size)
+{
+  http_t *http = (http_t *)opaque;
+  client_write(http->client, (char *)buf, buf_size);
+  return buf_size;
+}
+
+static int method_open(http_t *http)
+{
+  int result;
+  int64_t id, seek, bitrate;
+  track_t *track = NULL;
+  stream_t *stream;
+
+  id = args_int(http, "id");
+  seek = args_int(http, "seek");
+  bitrate = args_int(http, "bitrate");
+  if (!bitrate) {
+    bitrate = 196000;
+  } else if (bitrate < 64000) {
+    bitrate = 64000;
+  } else if (bitrate > 320000) {
+    bitrate = 320000;
+  }
+
+  track = library_track_by_id(id);
+  if (!track) {
+    http_reply(http, "404 Not Found");
+    return 0;
+  }
+
+  stream = stream_new();
+
+  if (!stream_open(stream, track)) {
+    http_reply(http, "500 Internal Server Error");
+    track_free(track);
+    stream_close(stream);
+    return 0;
+  }
+
+  if (!stream_transcode(stream, CODEC_TYPE_MP3, bitrate)
+   || !stream_remux(stream, feed_write, http)) {
+    http_reply(http, "500 Internal Server Error");
+    stream_close(stream);
+    return 0;
+  }
+
+  if (seek > 0) {
+    if (stream_seek(stream, seek) < 0) {
+      http_reply(http, "500 Internal Server Error");
+      stream_close(stream);
+      return 0;
+    }
+  }
+
+  http->stream = stream;
+  stream_start(stream);
+  http_send_headers(http, "200 OK", "audio/mpeg", -1);
+  client_start_feed(http->client);
+
+  return 0;
+}
+
 /* Allow access without authorization */
 #define NO_AUTH 0x02
 
@@ -736,6 +800,8 @@ static struct method_entry methods[] = {
   { "/image", method_image, 0 },
   { "/album/image", method_album_image, 0 },
   { "/album/images", method_album_images, 0 },
+
+  { "/open", method_open, 0 },
 
   { NULL, NULL, 0 }
 };
@@ -944,12 +1010,22 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   return end - buf;
 }
 
+int http_feed(void *self)
+{
+  http_t *http = (http_t *)self;
+  int result = stream_next(http->stream);
+  if (result <= 0) {
+    client_drain(http->client);
+  }
+  return 0;
+}
+
 protocol_t protocol_http = {
   .name = "http",
   .detect = http_detect,
   .open = http_open,
   .close = http_close,
   .process = http_process,
-  /*.feed = */
+  .feed = http_feed
 };
 
