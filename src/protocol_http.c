@@ -136,11 +136,13 @@ static void http_begin_headers
   (http_t *http,
    const char *status,
    const char *content_type,
-   size_t content_length)
+   int64_t content_length)
 {
   client_send(http->client, "HTTP/1.1 %s\r\n", status ? status : "200 OK");
   client_send(http->client, "Server: musicd/" MUSICD_VERSION_STRING "\r\n");
-  client_send(http->client, "Content-Length: %d\r\n", content_length);
+  if (content_length >= 0) {
+    client_send(http->client, "Content-Length: %d\r\n", content_length);
+  }
   if (content_type) {
     client_send(http->client, "Content-Type: %s; charset=utf-8\r\n",
                 content_type);
@@ -157,7 +159,7 @@ static void http_send_headers
   (http_t *http,
    const char *status,
    const char *content_type,
-   size_t content_length)
+   int64_t content_length)
 {
   http_begin_headers(http, status, content_type, content_length);
   client_send(http->client, "\r\n");
@@ -192,7 +194,7 @@ static void http_send_text
 
 static void http_reply(http_t *http, const char *status)
 {
-  http_send_headers(http, status, NULL, 0);
+  http_send(http, status, "text/plain", strlen(status), status);
 }
 
 static void http_send_file
