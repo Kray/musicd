@@ -465,9 +465,6 @@ bool stream_seek(stream_t *stream, double position)
   result = av_seek_frame(stream->src_ctx, 0, seek_pos, 0);
   
   stream->pts = position * AV_TIME_BASE;
-  
-  avcodec_flush_buffers(stream->decoder);
-  avcodec_flush_buffers(stream->encoder);
 
   return result >= 0 ? true : false;
 }
