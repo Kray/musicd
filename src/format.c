@@ -17,8 +17,23 @@
  */
 #include "format.h"
 
+codec_type_t codec_type_from_string(const char *string)
+{
+  if (!string || strlen(string) == 0) {
+    return CODEC_TYPE_NONE;
+  }
+  if (!strcmp(string, "mp3")) {
+    return CODEC_TYPE_MP3;
+  }
+  if (!strcmp(string, "ogg") || !strcmp(string, "vorbis")) {
+    return CODEC_TYPE_OGG_VORBIS;
+  }
+  return CODEC_TYPE_OTHER;
+}
+
 void format_from_av(AVCodecContext *src, format_t *dst)
 {
+  dst->codec = avcodec_get_name(src->codec_id);
   dst->samplerate = src->sample_rate;
   dst->bitspersample =  av_get_bytes_per_sample(src->sample_fmt) * 8;
   dst->channels = src->channels;

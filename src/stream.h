@@ -21,36 +21,81 @@
 #include "format.h"
 #include "libav.h"
 #include "track.h"
-#include "transcoder.h"
+
+#include <stdbool.h>
 
 typedef struct stream {
   track_t *track;
-  
-  AVFormatContext *avctx;
-  AVPacket avpacket;
-  
-  format_t src_format;
 
-  transcoder_t *transcoder;
-  
-  format_t *format;
-  
-  int at_end;
-  
+  /* read & demux */
+  AVPacket src_packet;
+  AVFormatContext *src_ctx;
+  const AVCodec *src_codec;
+  codec_type_t src_codec_type;
+
+  /* transcode */
+  uint8_t *src_buf;
+  int src_buf_size, src_buf_space;
+  AVCodecContext *decoder;
+  AVCodecContext *encoder;
+  int error_counter;
+  AVCodec *dst_codec;
+  codec_type_t dst_codec_type;
+  uint8_t *dst_data;
+  int dst_size;
+
+  /* remux */
+  AVFormatContext *dst_ctx;
+  uint8_t *dst_iobuf;
+  AVIOContext *dst_ioctx;
+
+  format_t format;
   double replay_track_gain;
   double replay_album_gain;
   double replay_track_peak;
   double replay_album_peak;
-  
+
+  /* ready packet after successful stream_next */
+  uint8_t *data;
+  int size;
+  int64_t pts;
+
 } stream_t;
 
-stream_t *stream_open(track_t *track);
+stream_t *stream_new();
 void stream_close(stream_t *stream);
-int stream_set_transcoder(stream_t *stream, transcoder_t *transcoder);
-uint8_t *stream_next(stream_t *stream, size_t *size, int64_t *pts);
-int stream_seek(stream_t *stream, int position);
+
+/**
+ * Starts reading @p track
+ */
+bool stream_open(stream_t *stream, track_t *track);
+/**
+ * Starts transcoding to @p codec at @p bitrate bps
+ */
+bool stream_transcode(stream_t *stream, codec_type_t codec, int bitrate);
+/**
+ * Starts remuxing @p stream
+ * @p write callback function that processes data written
+ */
+bool stream_remux(stream_t *stream,
+                   int (*write)(void *opaque, uint8_t *buf, int buf_size),
+                   void *opaque);
+
+int stream_start(stream_t *stream);
+
+/**
+ * Handles next packet.
+ * Data can be retrieved from stream->data and stream->size.
+ * If stream_remux was successfully called, write function was called to feed
+ * the data.
+ * @returns >0 if success, 0 if EOF, <0 on error
+ */
+int stream_next(stream_t *stream);
 
 
-
+/**
+ * Seeks to absolute @p position seconds
+ */
+bool stream_seek(stream_t *stream, double position);
 
 #endif

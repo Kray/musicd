@@ -20,6 +20,16 @@
 
 #include "libav.h"
 
+typedef enum codec_type {
+  CODEC_TYPE_OTHER = -1,
+  CODEC_TYPE_NONE = 0,
+  CODEC_TYPE_MP3,
+  CODEC_TYPE_OGG_VORBIS,
+} codec_type_t;
+
+codec_type_t codec_type_from_string(const char *string);
+
+
 typedef struct format {
   const char *codec;
   int samplerate;

@@ -208,7 +208,6 @@ static int method_open(self_t *self, char *p)
   int id;
   char *codec;
   int bitrate;
-  transcoder_t *transcoder;
   stream_t *stream;
   
   id = get_int(p, "id");
@@ -221,12 +220,15 @@ static int method_open(self_t *self, char *p)
 
   if (self->stream) {
     stream_close(self->stream);
+    self->stream = NULL;
   }
-  
-  self->stream = stream = stream_open(track);
-  if (!self->stream) {
+
+  stream = stream_new();
+
+  if (!stream_open(stream, track)) {
     client_error(self->client, "cannot_open");
     track_free(track);
+    stream_close(stream);
     return -1;
   }
   
@@ -234,23 +236,19 @@ static int method_open(self_t *self, char *p)
   if (codec) {
     bitrate = get_int(p, "bitrate");
     /* No sense in re-encoding to same codec. */
-    if (strcmp(codec, stream->format->codec)) {
-      transcoder =
-        transcoder_open(&stream->src_format, codec, bitrate);
-      if (transcoder) {
-        stream_set_transcoder(stream, transcoder);
-      }
+    if (strcmp(codec, stream->format.codec)) {
+      stream_transcode(stream, codec_type_from_string(codec), bitrate);
     }
   }
   
   send_track(self->client, track);
   
   client_send(self->client, "open\n");
-  client_send(self->client, "codec=%s\n", stream->format->codec);
-  client_send(self->client, "samplerate=%i\n", stream->format->samplerate);
+  client_send(self->client, "codec=%s\n", stream->format.codec);
+  client_send(self->client, "samplerate=%i\n", stream->format.samplerate);
   client_send(self->client, "bitspersample=%i\n",
-              stream->format->bitspersample);
-  client_send(self->client, "channels=%i\n", stream->format->channels);
+              stream->format.bitspersample);
+  client_send(self->client, "channels=%i\n", stream->format.channels);
   
   /* Replay gain */
   if (stream->replay_track_gain != 0.0) {
@@ -271,16 +269,18 @@ static int method_open(self_t *self, char *p)
   }
   
   
-  if (stream->format->extradata_size > 0) {
+  if (stream->format.extradata_size > 0) {
     client_send(self->client, "extradata:=%i\n\n",
-                stream->format->extradata_size);
+                stream->format.extradata_size);
     
-    client_write(self->client, (char *)stream->format->extradata,
-                 stream->format->extradata_size);
+    client_write(self->client, (char *)stream->format.extradata,
+                 stream->format.extradata_size);
   } else {
     client_send(self->client, "\n");
   }
-  
+
+  self->stream = stream;
+
   client_start_feed(self->client);
   
   return 0;
@@ -486,9 +486,7 @@ exit:
 
 static int musicd_feed(self_t *self)
 {
-  uint8_t *data;
-  size_t size;
-  int64_t pts;
+  int result;
   
   if (!self->stream) {
     /* What? */
@@ -496,20 +494,24 @@ static int musicd_feed(self_t *self)
     return 0;
   }
 
-  data = stream_next(self->stream, &size, &pts);
-  
-  if (!data) {
+  result = stream_next(self->stream);
+  if (result < 0) {
+    client_send(self->client, "packet\npayload:=0\n\n");
+    client_error(self->client, "stream_error");
+    client_stop_feed(self->client);
+    return 0;
+  } else if (result == 0) {
     client_send(self->client, "packet\npayload:=0\n\n");
     client_stop_feed(self->client);
     return 0;
   }
   
   client_send(self->client, "packet\n");
-  client_send(self->client, "pts=%" PRId64 "\n", pts);
-  client_send(self->client, "payload:=%i\n", size);
+  client_send(self->client, "pts=%" PRId64 "\n", self->stream->pts);
+  client_send(self->client, "payload:=%i\n", self->stream->size);
   client_send(self->client, "\n");
 
-  client_write(self->client, (const char *)data, size);
+  client_write(self->client, (const char *)self->stream->data, self->stream->size);
 
   return 0;
 }

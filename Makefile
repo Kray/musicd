@@ -21,7 +21,6 @@ SRCS =  src/cache.c \
 	src/protocol.c \
 	src/task.c \
 	src/track.c \
-	src/transcoder.c \
 	src/url.c
 
 DEPS = $(SRCS)
