@@ -727,7 +727,6 @@ static int feed_write(void *opaque, uint8_t *buf, int buf_size)
 
 static int method_open(http_t *http)
 {
-  int result;
   int64_t id, seek, bitrate;
   track_t *track = NULL;
   stream_t *stream;
@@ -935,6 +934,7 @@ static void *http_open(client_t *client)
 static void http_close(void *self)
 {
   http_t *http = (http_t *)self;
+  stream_close(http->stream);
   free(http);
 }
 
