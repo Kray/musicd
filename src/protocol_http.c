@@ -198,15 +198,14 @@ static void http_reply(http_t *http, const char *status)
   http_send(http, status, "text/plain", strlen(status), status);
 }
 
-static void http_send_file
+static bool http_try_send_file
   (http_t *http, const char *path, const char *content_type)
 {
   size_t size;
   char *data;
   FILE *file = fopen(path, "rb");
   if (!file) {
-    http_reply(http, "404 Not Found");
-    return;
+    return false;
   }
 
   fseek(file, 0, SEEK_END);
@@ -214,9 +213,8 @@ static void http_send_file
   fseek(file, 0, SEEK_SET);
 
   if (size <= 0) {
-    http_reply(http, "404 Not Found");
     fclose(file);
-    return;
+    return false;
   }
 
   data = malloc(size);
@@ -226,6 +224,15 @@ static void http_send_file
   http_send(http, NULL, content_type, size, data);
 
   free(data);
+  return true;
+}
+
+static void http_send_file
+  (http_t *http, const char *path, const char *content_type)
+{
+  if (!http_try_send_file(http, path, content_type)) {
+    http_reply(http, "404 Not Found");
+  }
 }
 
 static char *decode_url(const char **p)
@@ -818,6 +825,24 @@ static struct mime_entry mime_types[] = {
   { NULL, NULL },
 };
 
+const char *mime_type_from_path(const char *path)
+{
+  const char *ext;
+  struct mime_entry *mime;
+
+  for (ext = path + strlen(path);
+       ext > path && *(ext - 1) != '.' && *(ext - 1) != '/';
+       --ext) { }
+
+  for (mime = mime_types; mime->extension != NULL; ++mime) {
+    if (!strcmp(mime->extension, ext)) {
+      return mime->mime;
+      break;
+    }
+  }
+  return "application/octet-stream";
+}
+
 /* Tests if the user is authorized */
 static int is_authorized(http_t *http)
 {
@@ -847,11 +872,9 @@ finish:
   return result;
 }
 
-static int process_request(http_t *http)
+static int call_method(http_t *http)
 {
   struct method_entry *method;
-  char *path, *ext;
-  struct mime_entry *mime;
 
   for (method = methods; method->name != NULL; ++method) {
     if (!strcmp(method->name, http->path)) {
@@ -864,18 +887,24 @@ static int process_request(http_t *http)
       return method->handler(http);
     }
   }
+  return 1;
+}
 
-  /* Not any method, try HTTP root */
+static int send_document(http_t *http)
+{
+  int result;
+  char *path;
+  const char *mime;
+
   if (!config_get_value("http-root")) {
-    http_reply(http, "404 Not Found");
-    return 0;
+    return 1;
   }
 
   if (!strcmp(http->path, "/")) {
     path = stringf("%s/index.html", config_to_path("http-root"));
-    http_send_file(http, path, "text/html");
+    result = http_try_send_file(http, path, "text/html");
     free(path);
-    return 0;
+    return result ? 0 : 1;
   }
 
   path = stringf("%s/%s", config_to_path("http-root"), http->path);
@@ -886,20 +915,34 @@ static int process_request(http_t *http)
     return 0;
   }
 
-  musicd_log(LOG_DEBUG, "protocol_http", "static path: %s", path);
+  mime = mime_type_from_path(path);
 
-  for (ext = path + strlen(path); *(ext - 1) != '.' && *(ext - 1) != '/';
-       --ext) { }
+  musicd_log(LOG_DEBUG, "protocol_http", "static path: %s, mime: %s",
+             path, mime);
 
-  for (mime = mime_types; mime->extension != NULL; ++mime) {
-    if (!strcmp(mime->extension, ext)) {
-      break;
-    }
+  result = http_try_send_file(http, path, mime);
+  free(path);
+  return result ? 0 : 1;
+}
+
+static int process_request(http_t *http)
+{
+  int result;
+
+  /* Search order:
+   * 1. HTTP API method
+   * 2. Document root (if set)
+   */
+
+  if ((result = call_method(http)) <= 0) {
+    return result;
   }
 
-  http_send_file(http, path,
-                 mime->mime ? mime->mime : "application/octet-stream");
-  free(path);
+  if ((result = send_document(http)) <= 0) {
+    return result;
+  }
+
+ http_reply(http, "404 Not Found");
   return 0;
 }
 
