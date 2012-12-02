@@ -1,3 +1,9 @@
+
+BUILDDIR ?= ./build
+PREFIX ?= /usr/local
+
+CFLAGS += -g -Wall -Wextra
+
 SRCS =  src/cache.c \
 	src/client.c \
 	src/config.c \
@@ -23,22 +29,50 @@ SRCS =  src/cache.c \
 	src/track.c \
 	src/url.c
 
-DEPS = $(SRCS)
 
-CFLAGS += -g -Wall -Wextra
+ifdef HTTP_BUILTIN
+	CFLAGS += -DHTTP_BUILTIN
+	SRCS += ${BUILDDIR}/http_builtin.c
+endif
 
-LIBS = -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
+OBJS +=  $(SRCS:%.c=${BUILDDIR}/%.o)
+DEPS += $(OBJS)
+
+LIBS += -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
 
 
-PREFIX ?= /usr/local
+all: musicd
 
-musicd: $(DEPS)
-	$(CC) $(CFLAGS) $(SRCS) -o musicd $(LIBS)
+musicd: ${BUILDDIR}/musicd
+
+clean:
+	rm -rf ${BUILDDIR}
+
+${BUILDDIR}/musicd: $(DEPS)
+	@mkdir -p $(dir $@)
+	$(CC) $(OBJS) -o $@ $(LIBS)
+
+${BUILDDIR}/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+
+# Compile builtin HTTP file packer
+${BUILDDIR}/http_builtin.c: ${BUILDDIR}/http_builtin_pack
+	@mkdir -p $(dir $@)
+	${BUILDDIR}/http_builtin_pack $(HTTP_BUILTIN) > ${BUILDDIR}/http_builtin.c
+
+# Pack builtin HTTP files
+${BUILDDIR}/http_builtin_pack: tools/http_builtin_pack.c
+	@mkdir -p $(dir $@)
+	$(CC) tools/http_builtin_pack.c -o ${BUILDDIR}/http_builtin_pack
+
 
 install: musicd
 	install -d $(PREFIX)/bin/
-	install -m 0775 musicd $(PREFIX)/bin/
+	install -m 0775 ${BUILDDIR}/musicd $(PREFIX)/bin/
 	install -d $(PREFIX)/share/doc/musicd/
 	install -m 644 doc/* $(PREFIX)/share/doc/musicd/
 	install -d $(PREFIX)/share/man/man1/
 	install doc/musicd.1 $(PREFIX)/share/man/man1/
+

@@ -925,6 +925,28 @@ static int send_document(http_t *http)
   return result ? 0 : 1;
 }
 
+#ifdef HTTP_BUILTIN
+/* Found in generated http_builtin.c */
+extern int http_builtin_file(char *url, char **data, int *size);
+
+static int send_builtin(http_t *http)
+{
+  char *path = http->path, *data;
+  int size;
+
+  if (!strcmp(http->path, "/")) {
+    path = "/index.html";
+  }
+
+  if (!http_builtin_file(path, &data, &size)) {
+    return 1;
+  }
+
+  http_send(http, NULL, mime_type_from_path(path), size, data);
+  return 0;
+}
+#endif
+
 static int process_request(http_t *http)
 {
   int result;
@@ -932,6 +954,7 @@ static int process_request(http_t *http)
   /* Search order:
    * 1. HTTP API method
    * 2. Document root (if set)
+   * 3. Builtin resource (if built in)
    */
 
   if ((result = call_method(http)) <= 0) {
@@ -942,7 +965,13 @@ static int process_request(http_t *http)
     return result;
   }
 
- http_reply(http, "404 Not Found");
+#ifdef HTTP_BUILTIN
+  if ((result = send_builtin(http)) <= 0) {
+    return result;
+  }
+#endif
+
+  http_reply(http, "404 Not Found");
   return 0;
 }
 
