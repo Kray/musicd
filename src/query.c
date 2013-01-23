@@ -88,7 +88,7 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
 };
 static struct query_format track_query = {
-  "SELECT tracks.rowid AS trackid, urls.path AS url, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN urls ON tracks.url = urls.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
+  "SELECT tracks.rowid AS id, file.path AS file, cuefile.path AS cuefile, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN files AS file ON tracks.file = file.rowid LEFT OUTER JOIN files AS cuefile ON tracks.cuefile = cuefile.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
   "SELECT COUNT(tracks.rowid) FROM tracks LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
   track_maps
 };
@@ -400,15 +400,16 @@ int query_tracks_next(query_t *query, track_t *track)
   }
 
   track->id = sqlite3_column_int64(stmt, 0);
-  track->path = (char *)sqlite3_column_text(stmt, 1);
-  track->track = sqlite3_column_int(stmt, 2);
-  track->title = (char *)sqlite3_column_text(stmt, 3);
-  track->artistid = sqlite3_column_int64(stmt, 4);
-  track->artist = (char *)sqlite3_column_text(stmt, 5);
-  track->albumid = sqlite3_column_int64(stmt, 6);
-  track->album = (char *)sqlite3_column_text(stmt, 7);
-  track->start = sqlite3_column_int(stmt, 8);
-  track->duration = sqlite3_column_int(stmt, 9);
+  track->file = (char *)sqlite3_column_text(stmt, 1);
+  track->cuefile = (char *)sqlite3_column_text(stmt, 2);
+  track->track = sqlite3_column_int(stmt, 3);
+  track->title = (char *)sqlite3_column_text(stmt, 4);
+  track->artistid = sqlite3_column_int64(stmt, 5);
+  track->artist = (char *)sqlite3_column_text(stmt, 6);
+  track->albumid = sqlite3_column_int64(stmt, 7);
+  track->album = (char *)sqlite3_column_text(stmt, 8);
+  track->start = sqlite3_column_int(stmt, 9);
+  track->duration = sqlite3_column_int(stmt, 10);
 
   return 0;
 }

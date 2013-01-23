@@ -23,7 +23,8 @@
 typedef struct track {
   int64_t id;
   
-  char *path;
+  char *file;
+  char *cuefile;
   
   int track;
   char *title;
@@ -32,10 +33,9 @@ typedef struct track {
   int64_t albumid;
   char *album;
   char *albumartist;
-  
-  int duration;
-  
-  int start;
+
+  double start;
+  double duration;
   
 } track_t;
 

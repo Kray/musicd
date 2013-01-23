@@ -85,7 +85,7 @@ track_t *track_from_path(const char *path)
   
   track = track_new();
   
-  track->path = strdup(path);
+  track->file = strdup(path);
   
   tmp = get_metadata(avctx, "track");
   if (tmp) {
@@ -133,7 +133,8 @@ void track_free(track_t *track)
     return;
   }
   
-  free(track->path);
+  free(track->file);
+  free(track->cuefile);
   free(track->title);
   free(track->artist);
   free(track->album);

@@ -25,46 +25,46 @@
 
 int library_open();
 
-int64_t library_track_add(track_t *track, int64_t url);
+int64_t library_track_add(track_t *track, int64_t directory);
 
 /**
- * Returns id of url located by @p path. If it does not exist in the database,
+ * Returns id of file located by @p path. If it does not exist in the database,
  * it can be created depending on @p directory.
  * @param path  Url path.
- * @param directory Id of directory the url exists in. If > 0, a new url entry
+ * @param directory Id of directory the file exists in. If > 0, a new file entry
  * will be created to the database if not found.
  * @returns Url id or 0 if not existing and @p directory <= 0. On error < 0.
  */
-int64_t library_url(const char *path, int64_t directory);
+int64_t library_file(const char *path, int64_t directory);
 /**
- * Removes all tracks associated with @p url from the database.
+ * Removes all tracks associated with @p file from the database.
  */
-void library_url_clear(int64_t url);
+void library_file_clear(int64_t file);
 /**
- * Calls library_url_clear and removes the @p url entry from database.
+ * Calls library_file_clear and removes the @p file entry from database.
  */
-void library_url_delete(int64_t url);
+void library_file_delete(int64_t file);
 /**
- * @Returns mtime of @p url
+ * @Returns mtime of @p file
  */
-time_t library_url_mtime(int64_t url);
+time_t library_file_mtime(int64_t file);
 /**
- * Sets mtime of @p url to @p mtime.
+ * Sets mtime of @p file to @p mtime.
  */
-void library_url_mtime_set(int64_t url, time_t mtime);
+void library_file_mtime_set(int64_t file, time_t mtime);
 
 typedef struct {
   int64_t id;
   const char *path;
   time_t mtime;
   int64_t directory;
-} library_url_t;
+} library_file_t;
 /**
- * Iterate through urls with directory @p directory. Stops when @p callback
+ * Iterate through files with directory @p directory. Stops when @p callback
  * returns false.
  */
-void library_iterate_urls_by_directory
-  (int64_t directory, bool (*callback)(library_url_t *url));
+void library_iterate_files_by_directory
+  (int64_t directory, bool (*callback)(library_file_t *file));
 
 
 /**
@@ -78,7 +78,7 @@ void library_iterate_urls_by_directory
 int64_t library_directory(const char *path, int64_t parent);
 /**
  * Recursively calls library_directory_delete for each directory with parent
- * @p directory in database and library_url_delete for each url with directory
+ * @p directory in database and library_file_delete for each file with directory
  * @p directory.
  */
 void library_directory_delete(int64_t directory);
@@ -113,7 +113,7 @@ void library_iterate_directories
    void *opaque);
 
 
-int64_t library_image_add(int64_t url);
+int64_t library_image_add(int64_t file);
 
 typedef struct {
   int64_t id;
@@ -140,7 +140,7 @@ void library_iterate_images_by_album
 
 
 /**
- * @Returns most common album of tracks in urls located in @p directory.
+ * @Returns most common album of tracks in files located in @p directory.
  */
 int64_t library_album_by_directory(int64_t directory);
 

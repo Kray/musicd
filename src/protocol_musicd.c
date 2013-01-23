@@ -47,7 +47,7 @@ static void send_track(client_t *client, track_t* track)
 {
   client_send(client, "track\n");
   client_send(client, "id=%" PRId64 "\n", track->id);
-  client_send(client, "path=%s\n", track->path);
+  client_send(client, "path=%s\n", track->file);
   client_send(client, "track=%i\n", track->track);
   client_send(client, "title=%s\n", track->title);
   client_send(client, "artistid=%" PRId64 "\n", track->artistid);

@@ -148,27 +148,33 @@ static int create_schema()
   
   musicd_log(LOG_DEBUG, "db", "schema: %i", schema);
 
-  if (schema < 1) {
-    musicd_log(LOG_INFO, "db", "new database or pre-0.2 schema");
-    
+  if (schema > 3) {
+    musicd_log(LOG_ERROR, "db", "schema version higher than supported");
+    return -1;
+  }
+
+  if (schema < 3) {
+    musicd_log(LOG_INFO, "db", "new database or old schema");
+
+    /* Clear meta table */
+    db_simple_exec("DELETE FROM musicd", &error);
+
+    /* Drop all known tables (if exist) */
+    db_simple_exec("DROP TABLE IF EXISTS directories", &error);
     db_simple_exec("DROP TABLE IF EXISTS urls", &error);
     db_simple_exec("DROP TABLE IF EXISTS artists", &error);
     db_simple_exec("DROP TABLE IF EXISTS albums", &error);
     db_simple_exec("DROP TABLE IF EXISTS tracks", &error);
+    db_simple_exec("DROP TABLE IF EXISTS images", &error);
+    db_simple_exec("DROP TABLE IF EXISTS lyrics", &error);
     
     db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parent INT64)", &error);
-    db_simple_exec("CREATE TABLE urls (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
+    db_simple_exec("CREATE TABLE files (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
     db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
     db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64, image INT64)", &error);
-    db_simple_exec("CREATE TABLE tracks (url INT64, track INT, title TEXT, artist INT64, album INT64, start INT, duration INT)", &error);
-    
-    db_simple_exec("CREATE TABLE images (url INT64, album INT64)", &error);
-  }
-  
-  if (schema < 2) {
-    musicd_log(LOG_INFO, "db", "upgrade to schema 2");
-    db_simple_exec("CREATE TABLE lyrics (track INT64, lyrics TEXT, source TEXT, mtime INT64)", &error);
-    db_simple_exec("CREATE UNIQUE INDEX lyrics_index ON lyrics(track)", &error);
+    db_simple_exec("CREATE TABLE tracks (file INT64, cuefile INT64, track INT, title TEXT, artist INT64, album INT64, start DOUBLE, duration DOUBLE)", &error);
+    db_simple_exec("CREATE TABLE images (file INT64, album INT64)", &error);
+    db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, source TEXT, mtime INT64)", &error);
   }
   
   if (error) {
@@ -176,7 +182,7 @@ static int create_schema()
     return -1;
   }
   
-  db_meta_set_int("schema", 2);
+  db_meta_set_int("schema", 3);
   
   if (error) {
     musicd_log(LOG_ERROR, "db", "can't create schema");

@@ -95,7 +95,7 @@ static void scan_directory(const char *dirpath, int parent);
 static int64_t scan_file(const char *path, int64_t directory)
 {
   const char *extension;
-  int64_t url = 0;
+  int64_t file = 0;
   track_t *track;
 
   for (extension = path + strlen(path);
@@ -104,28 +104,25 @@ static int64_t scan_file(const char *path, int64_t directory)
     
   if (!strcasecmp(extension, "cue")) {
     /* CUE sheet */
-    if (cue_read(path, directory)) {
-      musicd_log(LOG_DEBUG, "scan", "cue: %s", path);
-      url = library_url(path, directory);
-    }
+    musicd_log(LOG_DEBUG, "scan", "cue: %s", path);
+    cue_read(path, directory);
   } else if(FreeImage_GetFIFFromFilename(path) != FIF_UNKNOWN) {
     /* Image file */
     if (FreeImage_GetFileType(path, 0) != FIF_UNKNOWN) {
       musicd_log(LOG_DEBUG, "scan", "image: %s", path);
-      url = library_url(path, directory);
-      library_image_add(url);
+      file = library_file(path, directory);
+      library_image_add(file);
     }
   } else {
     /* Try track */
     track = track_from_path(path);
     if (track) {
       musicd_log(LOG_DEBUG, "scan", "track: %s", path);
-      url = library_url(path, directory);
-      library_track_add(track, url);
+      library_track_add(track, directory);
       track_free(track);
     }
   } 
-  return url;
+  return file;
 }
 
 /**
@@ -138,8 +135,8 @@ static void iterate_directory(const char *dirpath, int dir_id)
   DIR *dir;
   struct dirent *entry;
   
-  int64_t url;
-  time_t url_mtime;
+  int64_t file;
+  time_t file_mtime;
   
   char *path;
   
@@ -178,17 +175,17 @@ static void iterate_directory(const char *dirpath, int dir_id)
       goto next;
     }
     
-    url = library_url(path, 0);
-    if (url > 0) {
-      url_mtime = library_url_mtime(url);
-      if (url_mtime == status.st_mtime) {
+    file = library_file(path, 0);
+    if (file > 0) {
+      file_mtime = library_file_mtime(file);
+      if (file_mtime == status.st_mtime) {
         goto next;
       }
     }
     
-    url = scan_file(path, dir_id);
-    if (url) {
-      library_url_mtime_set(url, status.st_mtime);
+    file = scan_file(path, dir_id);
+    if (file) {
+      library_file_mtime_set(file, status.st_mtime);
     }
 
   next:
@@ -206,25 +203,25 @@ static void iterate_directory(const char *dirpath, int dir_id)
 }
 
 
-static bool scan_urls_cb(library_url_t *url)
+static bool scan_files_cb(library_file_t *file)
 {
   struct stat status;
   
-  if (stat(url->path, &status)) {
-    musicd_perror(LOG_DEBUG, "scan", "removing url %s", url->path);
-    library_url_delete(url->id);
+  if (stat(file->path, &status)) {
+    musicd_perror(LOG_DEBUG, "scan", "removing file %s", file->path);
+    library_file_delete(file->id);
     return true;
   }
   
-  if (url->mtime == status.st_mtime) {
+  if (file->mtime == status.st_mtime) {
     return true;
   }
   
-  library_url_clear(url->id);
-  if (scan_file(url->path, url->directory)) {
-    library_url_mtime_set(url->id, status.st_mtime);
+  library_file_clear(file->id);
+  if (scan_file(file->path, file->directory)) {
+    library_file_mtime_set(file->id, status.st_mtime);
   } else {
-    library_url_delete(url->id);
+    library_file_delete(file->id);
   }
   
   return true;
@@ -363,7 +360,7 @@ static bool scan_directory_cb(library_directory_t *directory, void *empty)
     return true;
   }
   
-  library_iterate_urls_by_directory(directory->id, scan_urls_cb);
+  library_iterate_files_by_directory(directory->id, scan_files_cb);
   iterate_directory(directory->path, directory->id);
   
   assign_images(directory->id);
@@ -403,7 +400,7 @@ static void scan_directory(const char *dirpath, int parent)
     dir_id = library_directory(dirpath, parent);
   }
   
-  library_iterate_urls_by_directory(dir_id, scan_urls_cb);
+  library_iterate_files_by_directory(dir_id, scan_files_cb);
   iterate_directory(dirpath, dir_id);
   
   assign_images(dir_id);

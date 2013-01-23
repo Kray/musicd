@@ -88,17 +88,17 @@ bool stream_open(stream_t *stream, track_t* track)
     return false;
   }
 
-  result = avformat_open_input(&ctx, track->path, NULL, NULL);
+  result = avformat_open_input(&ctx, track->file, NULL, NULL);
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't open file '%s': %s",
-               track->path, strerror(AVUNERROR(result)));
+               track->file, strerror(AVUNERROR(result)));
     return false;
   }
 
   result = avformat_find_stream_info(ctx, NULL);
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't find stream info of '%s': %s",
-               track->path, strerror(AVUNERROR(result)));
+               track->file, strerror(AVUNERROR(result)));
     avformat_close_input(&ctx);
     return false;
   }
@@ -306,10 +306,14 @@ static int read_next(stream_t *stream)
     break;
   }
 
-  /* FIXME: Need accurate start and duration times in database */
-  if (floor(stream->src_packet.pts * av_q2d(stream->src_ctx->streams[0]->time_base))
-      > stream->track->start + stream->track->duration) {
-    return 0;
+  if (stream->src_packet.pts * av_q2d(stream->src_ctx->streams[0]->time_base) >
+      stream->track->start + stream->track->duration) {
+    if (stream->track->cuefile) {
+      /* Accurate end of track */
+      return 0;
+    } else {
+      /* Miscalculated track length */
+    }
   }
   
   return 1;

@@ -103,18 +103,18 @@ bool cue_read(const char *cuepath, int64_t directory)
   char album[512], albumartist[512];
   char line[1024], instr[16], string1[512], *ptr;
   
-  int64_t track_url;
+  int64_t track_file;
   
   struct stat status;
   
-  //char url[strlen(path) + 1024 + 2], cueurl[strlen(path) + 1024 + 2];
+  //char file[strlen(path) + 1024 + 2], cuefile[strlen(path) + 1024 + 2];
   
   int i;
   
   int index, mins, secs, frames;
   /* Track is stored in prev_track until index of the following track is known.
-   * This is mandatory for figuring out the track's duration. Last track's
-   * duration is calculated from file's total duration. */
+   * This is mandatory for figuring out the track's length. Last track's
+   * length is calculated from file's total length. */
   track_t *prev_track = NULL, *track = NULL, *file_track = NULL;
   
   file = fopen(cuepath, "r");
@@ -217,19 +217,19 @@ bool cue_read(const char *cuepath, int64_t directory)
         break;
       }
       
-      track_url = library_url(path, 0);
-      if (track_url > 0) {
-        /* Url already exists, clear associated tracks. */
-        library_url_clear(track_url);
+      track_file = library_file(path, 0);
+      if (track_file > 0) {
+        /* File already exists, clear associated tracks. */
+        library_file_clear(track_file);
       } else {
-        track_url = library_url(path, directory);
-        if (track_url <= 0) {
+        track_file = library_file(path, directory);
+        if (track_file <= 0) {
           /* Some error... */
           break;
         }
       }
       
-      library_url_mtime_set(track_url, status.st_mtime);
+      library_file_mtime_set(track_file, status.st_mtime);
       
       musicd_log(LOG_DEBUG, "cue", "audio: %s", path);
       continue;
@@ -248,14 +248,15 @@ bool cue_read(const char *cuepath, int64_t directory)
           prev_track = track;
         } else {
           prev_track->duration = track->start - prev_track->start;
-          library_track_add(prev_track, track_url);
+          library_track_add(prev_track, directory);
           track_free(prev_track);
           prev_track = track;
         }
       }
       
       track = track_new();
-      track->path = strdup(path);
+      track->cuefile = strdup(cuepath);
+      track->file = strdup(path);
       track->track = index;
       /* Set artist same as the album artist and replace if track spefific
        * artist is later defined. */
@@ -267,9 +268,9 @@ bool cue_read(const char *cuepath, int64_t directory)
     if (!strcmp(instr, "INDEX")) {
       sscanf(ptr, "%d %d:%d:%d", &index, &mins, &secs, &frames);
       /*musicd_log(LOG_DEBUG, "cue", "index: %d %2.2d:%2.2d.%2.2d", index, mins, secs, frames);*/
-      
       if (index == 1) {
-        track->start = mins * 60 + secs;
+        /* One frame is 1/75 seconds */
+        track->start = mins * 60.0 + secs + frames / 75.0;
       }
     }    
     
@@ -277,12 +278,12 @@ bool cue_read(const char *cuepath, int64_t directory)
   
   if (prev_track) {
     prev_track->duration = track->start - prev_track->start;
-    library_track_add(prev_track, track_url);
+    library_track_add(prev_track, directory);
     track_free(prev_track);
   }
   if (track) {
     track->duration = file_track->duration - track->start;
-    library_track_add(track, track_url);
+    library_track_add(track, directory);
     track_free(track);
   }
   
