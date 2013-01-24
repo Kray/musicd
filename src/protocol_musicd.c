@@ -54,7 +54,7 @@ static void send_track(client_t *client, track_t* track)
   client_send(client, "artist=%s\n", track->artist);
   client_send(client, "albumid=%" PRId64 "\n", track->albumid);
   client_send(client, "album=%s\n", track->album);
-  client_send(client, "duration=%i\n", track->duration);
+  client_send(client, "duration=%d\n", (int)track->duration);
   client_send(client, "\n");
 }
 
@@ -368,7 +368,6 @@ static int method_lyrics(self_t *self, char *p)
   int64_t id = get_int(p, "track");
   int64_t *id_ptr = malloc(sizeof(int64_t));
   *id_ptr = id;
-  
   lyrics = library_lyrics(id, &ltime);
   if (!lyrics) {
     if (ltime < (time(NULL) - 24 * 60 * 60)) {
