@@ -16,3 +16,22 @@
  * along with Musicd.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "libav.h"
+
+
+#if LIBAVCODEC_VERSION_MAJOR < 54
+/* Modified code from ffmpeg-0.11.2 */
+const char *avcodec_get_name(enum AVCodecID id)
+{
+  AVCodec *codec;
+
+  codec = avcodec_find_decoder(id);
+  if (codec) {
+    return codec->name;
+  }
+  codec = avcodec_find_encoder(id);
+  if (codec) {
+    return codec->name;
+  }
+  return "unknown_codec";
+}
+#endif

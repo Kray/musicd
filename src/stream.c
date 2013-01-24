@@ -219,8 +219,8 @@ bool stream_remux(stream_t *stream,
                    int (*write)(void *opaque, uint8_t *buf, int buf_size),
                    void *opaque)
 {
-  int result;
   const char *format_name;
+  AVOutputFormat *dst_format;
   AVFormatContext *dst_ctx;
   AVStream *dst_stream;
   uint8_t *dst_iobuf;
@@ -234,12 +234,14 @@ bool stream_remux(stream_t *stream,
     return false;
   }
 
-  result = avformat_alloc_output_context2(&dst_ctx, NULL, format_name, NULL);
-  if (result < 0) {
-    musicd_log(LOG_ERROR, "stream", "can't open remuxer: %s",
-               strerror(AVUNERROR(result)));
+  dst_format = av_guess_format(format_name, NULL, NULL);
+  if (!dst_format) {
+    musicd_log(LOG_ERROR, "stream", "can't find encoder for %s",format_name);
     return false;
   }
+
+  dst_ctx = avformat_alloc_context();
+  dst_ctx->oformat = dst_format;
 
   dst_stream = avformat_new_stream(dst_ctx, stream->dst_codec);
   if (!dst_stream) {
@@ -295,7 +297,7 @@ static int read_next(stream_t *stream)
         /* end of file */
         return 0;
       }
-      musicd_log(LOG_WARNING, "stream", "av_read_frame failed: %s",
+      musicd_log(LOG_ERROR, "stream", "av_read_frame failed: %s",
                  strerror(AVUNERROR(result)));
       return 0;
     }
