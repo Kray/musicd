@@ -331,7 +331,7 @@ static int method_albumimg(self_t *self, char *p)
   image = library_album_image(album);
   if (image <= 0) {
     client_send(self->client, "albumimg\nstatus=unavailable\n\n");
-    goto exit;
+    return 0;
   }
 
   cache_name = image_cache_name(image, size);
