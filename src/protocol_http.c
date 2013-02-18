@@ -22,22 +22,24 @@
 #include "config.h"
 #include "image.h"
 #include "json.h"
+#include "library.h"
 #include "log.h"
 #include "musicd.h"
 #include "query.h"
+#include "session.h"
 #include "strings.h"
 #include "task.h"
-
-#include "library.h"
 
 typedef struct http {
   client_t *client;
 
   /* Current request */
+  session_t *session;
   const char *request;
   char *query;
   char *path;
   char *args;
+  char *cookies;
 
   stream_t *stream;
 } http_t;
@@ -278,6 +280,25 @@ static char *encode_url(const char *p)
   return string_release(result);
 }
 
+static char *cookie_get(http_t *http, const char *name)
+{
+  char *search = stringf("%s=", name),
+       *result = NULL;
+  const char *p1, *p2;
+
+  p1 = strstr(http->cookies, search);
+  if (!p1) {
+    goto finish;
+  }
+  p1 += strlen(search);
+  p2 = strchrnull(p1, ';');
+
+  result = strextract(p1, p2);
+
+finish:
+  free(search);
+  return result;
+}
 
 /** Iterates through all arguments and sets all valid filters to query. */
 static int parse_query_filters(http_t *http, query_t *query)
@@ -396,7 +417,7 @@ static int method_auth(http_t *http)
   static const char *response_error = "{\"auth\":\"error\"}";
 
   char *user, *password;
-  char *set_user = NULL, *set_password = NULL;
+  session_t *session;
 
   user = args_str(http, "user");
   password = args_str(http, "password");
@@ -414,24 +435,21 @@ static int method_auth(http_t *http)
     http_send_text(http, "200 OK", "text/json", response_error);
 
   } else {
-    set_user = encode_url(config_get("user"));
-    set_password = encode_url(config_get("password"));
+    session = session_new();
+    session->user = strdup(user);
+
     musicd_log(LOG_VERBOSE, "protocol_http", "%s authed",
                http->client->address);
 
     http_begin_headers(http, "200 OK", "text/json", strlen(response_ok));
     client_send(http->client,
-                "Set-Cookie: user=%s;\r\n"
-                "Set-Cookie: password=%s;\r\n"
-                "\r\n%s",
-                set_user, set_password, response_ok);
+                "Set-Cookie: musicd-session=%s;\r\n"
+                "\r\n%s", session->id, response_ok);
   }
 
 finish:
   free(user);
   free(password);
-  free(set_user);
-  free(set_password);
   return 0;
 }
 
@@ -787,8 +805,9 @@ static int method_open(http_t *http)
   return 0;
 }
 
-/* Allow access without authorization */
-#define NO_AUTH 0x02
+
+#define NO_AUTH 0x02 /* Allow access without authorisation */
+#define SHARE_CAPABLE 0x04 /* Supports restricted share access */
 
 struct method_entry {
   const char *name;
@@ -843,37 +862,35 @@ const char *mime_type_from_path(const char *path)
   return "application/octet-stream";
 }
 
-/* Tests if the user is authorized */
-static int is_authorized(http_t *http)
+static void attach_session(http_t *http)
 {
-  int result;
-  char *encoded, *search;
+  http->session = NULL;
 
   if (config_to_bool("no-auth")) {
-    return 1;
+    return;
   }
 
-  /* TODO: real cookie parsing... */
-  encoded = encode_url(config_get("user"));
-  search = stringf("user=%s", encoded);
-  if (!strstr(http->request, search)) {
-    result = 0;
-    goto finish;
+  char *session_id;
+
+  session_id = args_str(http, "share");
+  if (session_id) {
+    http->session = session_get(session_id);
+    free(session_id);
+    if (http->session) {
+      /* Valid share */
+      return;
+    }
   }
 
-  encoded = encode_url(config_get("password"));
-  search = stringf("password=%s", encoded);
-  if (!strstr(http->request, search)) {
-    result = 0;
-    goto finish;
+  session_id = cookie_get(http, "musicd-session");
+  if (session_id) {
+    http->session = session_get(session_id);
+    free(session_id);
+    if (http->session) {
+      /* Valid session (real or share) */
+      return;
+    }
   }
-
-  result = 1;
-
-finish:
-  free(encoded);
-  free(search);
-  return result;
 }
 
 static int call_method(http_t *http)
@@ -882,11 +899,18 @@ static int call_method(http_t *http)
 
   for (method = methods; method->name != NULL; ++method) {
     if (!strcmp(method->name, http->path)) {
-      if (!(method->flags & NO_AUTH)) {
-        if (!is_authorized(http)) {
-          http_reply(http, "403 Forbidden");
-          return 0;
-        }
+      /* Forbidden if
+       * - auth is not disabled
+       * - method requires authorisation
+       * - no valid session or
+       *   the session is a share and the method doesn't handle shares
+       */
+      if (!config_to_bool("no-auth") &&
+          !(method->flags & NO_AUTH) &&
+          (!http->session ||
+           (!(method->flags & SHARE_CAPABLE) && !http->session->user))) {
+        http_reply(http, "403 Forbidden");
+        return 0;
       }
       return method->handler(http);
     }
@@ -1073,12 +1097,26 @@ static int http_process(void *self, const char *buf, size_t buf_size)
     http->path = strextract(http->query, p2);
     http->args = strextract(p2 + 1, NULL);
   }
+
+  /* Extract cookies */
+  p1 = strstr(http->request, "Cookie: ");
+  if (!p1) {
+    http->cookies = strdup("");
+  } else {
+    p2 = strstrnull(p1, "\r\n");
+    http->cookies = strextract(p1, p2);
+  }
+
+  musicd_log(LOG_DEBUG, "protocol_http", "cookies: '%s'", http->cookies);
+
+  attach_session(http);
   
   result = process_request(http);
 
   free(http->query);
   free(http->path);
   free(http->args);
+  free(http->cookies);
 
   if (result < 0) {
     return result;
