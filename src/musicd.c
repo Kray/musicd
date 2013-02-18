@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 
@@ -157,6 +158,8 @@ int main(int argc, char* argv[])
   
   musicd_log(LOG_INFO, "main", "musicd version %s", MUSICD_VERSION_STRING);
   
+  srand(time(NULL));
+
   av_register_all();
   avcodec_register_all();
   
