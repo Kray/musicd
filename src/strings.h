@@ -67,6 +67,10 @@ const char *strcasestr(const char *haystack, const char *needle);
  * @p s is returned. */
 const char *strchrnull(const char *s, int c);
 
+/** Like strstr, except that if @p c is not found, null terminating byte of
+ * @p s is returned. */
+const char *strstrnull(const char *s, const char *c);
+
 /** Tests if @p string begins with @p what. */
 int strbeginswith(const char *string, const char *what);
 
