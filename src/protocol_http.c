@@ -819,7 +819,7 @@ struct mime_entry {
 static struct mime_entry mime_types[] = {
   { "html", "text/html" },
   { "css", "text/css" },
-  { "js", "text/x-javascript" },
+  { "js", "application/javascript" },
   { "jpg", "image/jpeg" },
   { "png", "image/png" },
   { NULL, NULL },
