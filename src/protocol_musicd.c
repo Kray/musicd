@@ -461,7 +461,7 @@ static int musicd_process(self_t *self, const char *buf, size_t buf_size)
     goto exit;
   }
   
-  if (self->user == NULL) {
+  if (!config_to_bool("no-auth") && self->user == NULL) {
     client_error(self->client, "unauthorized");
     goto exit;
   }

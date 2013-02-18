@@ -849,6 +849,10 @@ static int is_authorized(http_t *http)
   int result;
   char *encoded, *search;
 
+  if (config_to_bool("no-auth")) {
+    return 1;
+  }
+
   /* TODO: real cookie parsing... */
   encoded = encode_url(config_get("user"));
   search = stringf("user=%s", encoded);
