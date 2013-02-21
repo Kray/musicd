@@ -19,6 +19,7 @@ SRCS =  src/cache.c \
 	src/musicd.c \
 	src/query.c \
 	src/scan.c \
+	src/session.c \
 	src/server.c \
 	src/stream.c \
 	src/strings.c \
