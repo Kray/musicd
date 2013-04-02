@@ -324,7 +324,7 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
 
   int buf_size = av_samples_get_buffer_size(NULL, stream->encoder->channels,
                                                   stream->encoder->frame_size,
-                                                  stream->encoder->sample_fmt, 1);
+                                                  stream->encoder->sample_fmt, 0);
   stream->encode_buf = av_mallocz(buf_size);
   stream->encode_frame = avcodec_alloc_frame();
   stream->encode_frame->nb_samples = stream->encoder->frame_size;
@@ -495,13 +495,13 @@ static int decode_next(stream_t *stream)
       int buf_size = av_samples_get_buffer_size(NULL,
                                                 stream->encoder->channels,
                                                 frame->nb_samples,
-                                                stream->encoder->sample_fmt, 1);
+                                                stream->encoder->sample_fmt, 0);
       stream->resample_buf = av_mallocz(buf_size);
       stream->resample_frame->nb_samples = frame->nb_samples;
       result = avcodec_fill_audio_frame(stream->resample_frame,
-                              stream->encoder->channels,
-                              stream->encoder->sample_fmt,
-                              stream->resample_buf, buf_size, 0);
+                                        stream->encoder->channels,
+                                        stream->encoder->sample_fmt,
+                                        stream->resample_buf, buf_size, 0);
     }
 
     result = avresample_convert(stream->resampler,
