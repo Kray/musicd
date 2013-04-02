@@ -699,6 +699,8 @@ track_t *library_track_by_id(int64_t id)
              track->id, track->file, track->cuefile, track->track, track->title, track->artist,
              track->album, track->start, track->duration);
 
+  sqlite3_finalize(stmt);
+
   return track;
 }
 

@@ -113,6 +113,7 @@ void string_appendf(string_t *string, const char *format, ...)
     buf = realloc(buf, size);
   }
   string_nappend(string, buf, n);
+  free(buf);
 }
 
 void string_nappend(string_t *string, const char *string2, size_t addlen)
