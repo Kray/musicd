@@ -21,6 +21,9 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
+#include <libavutil/audio_fifo.h>
+#include <libavresample/avresample.h>
+#include <libavutil/opt.h>
 
 
 /* Compatibility stuff for older versions of ffmpeg */

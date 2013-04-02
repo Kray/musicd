@@ -39,7 +39,7 @@ endif
 OBJS +=  $(SRCS:%.c=${BUILDDIR}/%.o)
 DEPS += $(OBJS)
 
-LIBS += -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
+LIBS += -lpthread -lm -lavutil -lavcodec -lavformat -lavresample -lsqlite3 -lfreeimage -lcurl
 
 
 all: musicd

@@ -27,28 +27,51 @@
 typedef struct stream {
   track_t *track;
 
-  /* read & demux */
-  AVPacket src_packet;
+  /*** read & demux ***/
   AVFormatContext *src_ctx;
   const AVCodec *src_codec;
   codec_type_t src_codec_type;
 
-  /* transcode */
-  uint8_t *src_buf;
-  int src_buf_size, src_buf_space;
+  AVPacket src_packet;
+
+
+  /*** transcode ***/
+  /* decode */
+  AVFrame *decode_frame;
   AVCodecContext *decoder;
+
+  /* resample */
+  AVAudioResampleContext *resampler;
+  AVFrame *resample_frame;
+  uint8_t *resample_buf;
+
+  /* buffer */
+  AVAudioFifo *src_buf;
+
+
+  /* encode */
+  AVFrame *encode_frame;
+  uint8_t *encode_buf;
   AVCodecContext *encoder;
-  int error_counter;
   AVCodec *dst_codec;
   codec_type_t dst_codec_type;
+  int error_counter;
+
+  AVPacket encode_packet;
+
+
+  /*** result packet */
   uint8_t *dst_data;
   int dst_size;
 
-  /* remux */
+
+  /*** remux ***/
   AVFormatContext *dst_ctx;
   uint8_t *dst_iobuf;
   AVIOContext *dst_ioctx;
 
+
+  /*** result ***/
   format_t format;
   double replay_track_gain;
   double replay_album_gain;

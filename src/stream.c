@@ -54,10 +54,11 @@ void stream_close(stream_t *stream)
   }
 
   track_free(stream->track);
-  free(stream->src_buf);
   free(stream->dst_data);
   av_free(stream->dst_iobuf);
   av_free(stream->dst_ioctx);
+
+  av_free_packet(&stream->src_packet);
 
   if (stream->src_ctx) {
     avformat_close_input(&stream->src_ctx);
@@ -74,6 +75,17 @@ void stream_close(stream_t *stream)
     avcodec_close(stream->encoder);
     av_free(stream->encoder);
   }
+
+  av_audio_fifo_free(stream->src_buf);
+
+  avresample_free(&stream->resampler);
+
+  avcodec_free_frame(&stream->decode_frame);
+  avcodec_free_frame(&stream->resample_frame);
+  avcodec_free_frame(&stream->encode_frame);
+
+  av_free(stream->resample_buf);
+  av_free(stream->encode_buf);
 
   free(stream);
 }
@@ -131,7 +143,7 @@ bool stream_open(stream_t *stream, track_t* track)
 
   format_from_av(stream->src_ctx->streams[0]->codec, &stream->format);
 
-  /* Replay gain, test container metadata, then stream metadata. */
+  /* Replay gain: test container metadata, then stream metadata. */
   find_replay_gain(stream, stream->src_ctx->metadata);
   if (stream->replay_track_gain == 0.0 && stream->replay_track_gain == 0.0) {
     find_replay_gain(stream, stream->src_ctx->streams[0]->metadata);
@@ -140,7 +152,7 @@ bool stream_open(stream_t *stream, track_t* track)
              stream->replay_track_gain, stream->replay_album_gain,
              stream->replay_track_peak, stream->replay_album_peak);
 
-  /* If track does not begin from the beginning of the file, seek to relative
+  /* If the track doesn't begin from the beginning of the file, seek to relative
    * zero. */
   if (stream->track->start > 0) {
     stream_seek(stream, 0);
@@ -148,13 +160,77 @@ bool stream_open(stream_t *stream, track_t* track)
   return true;
 }
 
+static
+enum AVSampleFormat
+find_common_sample_fmt(const enum AVSampleFormat *fmts1,
+                       const enum AVSampleFormat *fmts2)
+{
+  if (!fmts1 || !fmts2) {
+    return AV_SAMPLE_FMT_NONE;
+  }
+  const enum AVSampleFormat *iter;
+  for (; *fmts1 != -1; ++fmts1) {
+    for (iter = fmts2; *iter != -1; ++iter) {
+      if (*fmts1 == *iter) {
+        return *iter;
+      }
+    }
+  }
+  return AV_SAMPLE_FMT_NONE;
+}
+
+static
+enum AVSampleFormat
+find_sample_fmt(enum AVSampleFormat src_fmt,
+                const enum AVSampleFormat *dst_fmts)
+{
+  if (!dst_fmts) {
+    return src_fmt;
+  }
+  const enum AVSampleFormat *iter;
+  for (iter = dst_fmts; *iter != -1; ++iter) {
+    if (*iter == src_fmt) {
+      return src_fmt;
+    }
+  }
+
+  /* Return first supported sample format */
+  return *dst_fmts;
+}
+
+static
+int
+find_sample_rate(int sample_rate, const int *sample_rates)
+{
+  int closest = 0;
+  const int *iter;
+
+  if (!sample_rates) {
+    return sample_rate;
+  }
+
+  for (iter = sample_rates; *iter != 0; ++iter) {
+    if (*iter == sample_rate) {
+      return sample_rate;
+    }
+
+    if (abs(*iter - sample_rate) < abs(closest - sample_rate)) {
+      closest = *iter;
+    }
+  }
+
+  return closest;
+}
+
 bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
 {
   int result;
   enum AVCodecID dst_codec_id;
-  AVCodec *dst_codec;
-  AVCodecContext *decoder;
-  AVCodecContext *encoder;
+  AVCodec *dst_codec = NULL;
+  AVCodecContext *decoder = NULL, *encoder = NULL;
+  enum AVSampleFormat dst_sample_fmt;
+  int dst_sample_rate;
+  AVAudioResampleContext *resampler = NULL;
 
   if (codec_type == CODEC_TYPE_MP3) {
     dst_codec_id = AV_CODEC_ID_MP3;
@@ -174,12 +250,40 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   decoder = avcodec_alloc_context3(stream->src_codec);
   avcodec_copy_context(decoder, stream->src_ctx->streams[0]->codec);
 
+  /* Try to figure out common sample format to skip format conversion */
+  decoder->request_sample_fmt =
+    find_common_sample_fmt(stream->src_codec->sample_fmts,
+                           dst_codec->sample_fmts);
+
   result = avcodec_open2(decoder, stream->src_codec, NULL);
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't open decoder: %s",
                strerror(AVUNERROR(result)));
-    av_free(decoder);
-    return false;
+    goto fail;
+  }
+
+
+  dst_sample_fmt = find_sample_fmt(decoder->sample_fmt,
+                                   dst_codec->sample_fmts);
+  dst_sample_rate = find_sample_rate(decoder->sample_rate,
+                                     dst_codec->supported_samplerates);
+
+  if (dst_sample_fmt != decoder->sample_fmt ||
+      dst_sample_rate != decoder->sample_rate) {
+    resampler = avresample_alloc_context();
+    av_opt_set_int(resampler, "in_channel_layout", decoder->channel_layout, 0);
+    av_opt_set_int(resampler, "out_channel_layout", decoder->channel_layout, 0);
+    av_opt_set_int(resampler, "in_sample_rate", decoder->sample_rate, 0);
+    av_opt_set_int(resampler, "out_sample_rate", dst_sample_rate, 0);
+    av_opt_set_int(resampler, "in_sample_fmt", decoder->sample_fmt, 0);
+    av_opt_set_int(resampler, "out_sample_fmt", dst_sample_fmt, 0);
+
+    result = avresample_open(resampler);
+    if (result < 0) {
+      musicd_log(LOG_ERROR, "stream", "can't open resampler: %s",
+               strerror(AVUNERROR(result)));
+      goto fail;
+    }
   }
 
   /** @todo FIXME Hard-coded values. */
@@ -188,9 +292,9 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   }
 
   encoder = avcodec_alloc_context3(dst_codec);
-  encoder->sample_rate = decoder->sample_rate;
+  encoder->sample_rate = dst_sample_rate;
   encoder->channels = decoder->channels;
-  encoder->sample_fmt = decoder->sample_fmt;
+  encoder->sample_fmt = dst_sample_fmt;
   encoder->channel_layout = decoder->channel_layout;
   encoder->bit_rate = bitrate;
 
@@ -198,10 +302,7 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't open encoder: %s",
                strerror(AVUNERROR(result)));
-    avcodec_close(decoder);
-    av_free(decoder);
-    av_free(encoder);
-    return false;
+    goto fail;
   }
 
 
@@ -209,10 +310,35 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   stream->encoder = encoder;
   stream->dst_codec = dst_codec;
   stream->dst_codec_type = codec_type;
+  stream->resampler = resampler;
   format_from_av(encoder, &stream->format);
 
-  stream->dst_data = malloc(FF_MIN_BUFFER_SIZE);
+  stream->src_buf = av_audio_fifo_alloc(encoder->sample_fmt, encoder->channels, encoder->frame_size);
+
+  stream->decode_frame = avcodec_alloc_frame();
+
+  if (stream->resampler) {
+    /* The buffer will be allocated dynamically */
+    stream->resample_frame = avcodec_alloc_frame();
+  }
+
+  int buf_size = av_samples_get_buffer_size(NULL, stream->encoder->channels,
+                                                  stream->encoder->frame_size,
+                                                  stream->encoder->sample_fmt, 1);
+  stream->encode_buf = av_mallocz(buf_size);
+  stream->encode_frame = avcodec_alloc_frame();
+  stream->encode_frame->nb_samples = stream->encoder->frame_size;
+  avcodec_fill_audio_frame(stream->encode_frame,
+                           stream->encoder->channels,
+                           stream->encoder->sample_fmt,
+                           stream->encode_buf, buf_size, 0);
   return true;
+
+fail:
+  avcodec_close(decoder);
+  av_free(decoder);
+  avresample_free(&resampler);
+  return false;
 }
 
 bool stream_remux(stream_t *stream,
@@ -323,17 +449,19 @@ static int read_next(stream_t *stream)
 
 static int decode_next(stream_t *stream)
 {
-  int result;
-  int16_t samples[AVCODEC_MAX_AUDIO_FRAME_SIZE];
-  int size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
-  
+  int result, got_frame;
+  AVFrame *frame = stream->decode_frame;
+
   result = read_next(stream);
   if (result <= 0) {
     return result;
   }
-    
-  result = avcodec_decode_audio3(stream->decoder, samples, &size,
-                                 &stream->src_packet);
+
+  avcodec_get_frame_defaults(frame);
+
+  result = avcodec_decode_audio4(stream->decoder, frame,
+                                 &got_frame, &stream->src_packet);
+
   if (result < 0) {
     /* Decoding right after seeking, especially with mp3, might fail because
      * we don't have the frame header available yet. */
@@ -349,54 +477,86 @@ static int decode_next(stream_t *stream)
      * like success... */
     return 1;
   }
+
   if (stream->error_counter) {
     musicd_log(LOG_VERBOSE, "stream", "recovered from error_counter = %d",
                stream->error_counter);
     stream->error_counter = 0;
   }
 
-  /* Grow buffer if too small */
-  if (stream->src_buf_space < stream->src_buf_size + size) {
-    stream->src_buf = realloc(stream->src_buf, stream->src_buf_size + size);
-    stream->src_buf_space = stream->src_buf_size + size;
+  if (!got_frame) {
+    return 1;
   }
 
-  memcpy(stream->src_buf + stream->src_buf_size, samples, size);
-  stream->src_buf_size += size;
-  
+  if (stream->resampler) {
+    if (stream->resample_frame->nb_samples < frame->nb_samples) {
+      av_free(stream->resample_buf);
+
+      int buf_size = av_samples_get_buffer_size(NULL,
+                                                stream->encoder->channels,
+                                                frame->nb_samples,
+                                                stream->encoder->sample_fmt, 1);
+      stream->resample_buf = av_mallocz(buf_size);
+      stream->resample_frame->nb_samples = frame->nb_samples;
+      result = avcodec_fill_audio_frame(stream->resample_frame,
+                              stream->encoder->channels,
+                              stream->encoder->sample_fmt,
+                              stream->resample_buf, buf_size, 0);
+    }
+
+    result = avresample_convert(stream->resampler,
+                                stream->resample_frame->extended_data,
+                                stream->resample_frame->linesize[0],
+                                stream->resample_frame->nb_samples,
+                                frame->extended_data,
+                                frame->linesize[0],
+                                frame->nb_samples);
+    av_audio_fifo_write(stream->src_buf,
+                        (void **)stream->resample_frame->extended_data,
+                        result);
+  } else {
+    av_audio_fifo_write(stream->src_buf,
+                        (void **)frame->extended_data,
+                        frame->nb_samples);
+  }
+
   return 1;
 }
 
 static int encode_next(stream_t *stream)
 {
-  int result;
+  int result, got_packet;
+  AVFrame *frame = stream->encode_frame;
+  AVPacket *packet = &stream->encode_packet;
 
-  while (stream->src_buf_size < stream->format.frame_size) {
-
+  while (av_audio_fifo_size(stream->src_buf) < stream->encoder->frame_size) {
     result = decode_next(stream);
     if (result <= 0) {
       return result;
     }
   }
 
-  result = avcodec_encode_audio(stream->encoder, stream->dst_data,
-                                FF_MIN_BUFFER_SIZE,
-                                (int16_t *)stream->src_buf);
+  av_audio_fifo_read(stream->src_buf,
+                     (void **)frame->extended_data,
+                     stream->encoder->frame_size);
+
+  av_init_packet(packet);
+  packet->data = NULL;
+
+  result = avcodec_encode_audio2(stream->encoder, packet, frame, &got_packet);
+
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't encode: %s",
                strerror(AVUNERROR(result)));
     return -1;
   }
 
-  memmove(stream->src_buf, stream->src_buf + stream->format.frame_size,
-          stream->src_buf_size - stream->format.frame_size);
-  stream->src_buf_size -= stream->format.frame_size;
+  if (!got_packet) {
+    return 1;
+  }
 
-  stream->pts += stream->format.frame_size / (stream->format.channels *
-                 (stream->format.bitspersample / 8)) * AV_TIME_BASE /
-                 stream->format.samplerate;
-
-  stream->dst_size = result;
+  stream->dst_data = packet->data;
+  stream->dst_size = packet->size;
 
   return 1;
 }
