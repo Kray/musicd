@@ -160,7 +160,7 @@ int client_process(client_t *client)
 {
   int result;
 
-  result = read_data(client);
+  while ((result = read_data(client)) > 0) { }
   if (result < 0) {
     return result;
   }
