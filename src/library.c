@@ -602,13 +602,18 @@ void library_image_album_set_by_directory(int64_t directory, int64_t album)
   execute(query);
 }
 
-char *library_lyrics(int64_t track, time_t *time)
+lyrics_t *library_lyrics(int64_t track, time_t *time)
 {
   static const char *sql =
-    "SELECT lyrics, mtime FROM lyrics WHERE track = ?";
+    "SELECT lyrics, source, mtime FROM lyrics WHERE track = ?";
   sqlite3_stmt *query;
   int result;
-  
+  lyrics_t *lyrics;
+
+  if (time) {
+    *time = 0;
+  }
+
   if (!prepare_query(sql, &query)) {
     return NULL;
   }
@@ -621,30 +626,37 @@ char *library_lyrics(int64_t track, time_t *time)
   }
   if (result == SQLITE_ROW) {
     if (time) {
-      *time = sqlite3_column_int64(query, 1);
+      *time = sqlite3_column_int64(query, 2);
     }
-    if (sqlite3_column_text(query, 0)) {
-      return strdup((const char *)sqlite3_column_text(query, 0));
+    if (!sqlite3_column_text(query, 0)) {
+      return NULL;
     }
+
+    lyrics = lyrics_new();
+    lyrics->lyrics = strdup((const char *)sqlite3_column_text(query, 0));
+    if (sqlite3_column_text(query, 1)) {
+      lyrics->source = strdup((const char *)sqlite3_column_text(query, 1));
+    }
+    return lyrics;
   }
   return NULL;
 }
 
-void library_lyrics_set(int64_t track, char *lyrics)
+void library_lyrics_set(int64_t track, lyrics_t *lyrics)
 {
   static const char *sql =
-    "INSERT OR REPLACE INTO lyrics (track, lyrics, mtime) VALUES(?, ?, ?)";
+    "INSERT OR REPLACE INTO lyrics (track, lyrics, source, mtime) VALUES(?, ?, ?, ?)";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
     return;
   }
-  
+
   sqlite3_bind_int64(query, 1, track);
-  sqlite3_bind_text(query, 2, lyrics, -1, NULL);
-  sqlite3_bind_int64(query, 3, time(NULL));
-  
-  
+  sqlite3_bind_text(query, 2, lyrics ? lyrics->lyrics : NULL, -1, NULL);
+  sqlite3_bind_text(query, 3, lyrics ? lyrics->source : NULL, -1, NULL);
+  sqlite3_bind_int64(query, 4, time(NULL));
+
   execute(query);
 }
 

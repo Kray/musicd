@@ -24,6 +24,23 @@
 
 #include <string.h>
 
+lyrics_t *lyrics_new()
+{
+  lyrics_t *lyrics = malloc(sizeof(lyrics_t));
+  memset(lyrics, 0, sizeof(lyrics_t));
+  return lyrics;
+}
+
+void lyrics_free(lyrics_t *lyrics)
+{
+  if (!lyrics) {
+    return;
+  }
+
+  free(lyrics->lyrics);
+  free(lyrics->source);
+  free(lyrics);
+}
 
 /** LyricsWiki parsing strategy:
  * - start from first hit of "<div class='lyricbox'>"
@@ -78,19 +95,26 @@ static char *parse_lyrics_page(char *page)
   return string_release(result);
 }
 
-static char *handle_lyrics_page(const char *page_name)
+static lyrics_t *handle_lyrics_page(const char *page_name)
 {
-  char *page;
-  char *lyrics;
-  page = url_fetch_escaped_location("http://lyrics.wikia.com", page_name);
+  char *url, *page, *lyrics;
+  lyrics_t *result;
+
+  url = url_escape_location("http://lyrics.wikia.com", page_name);
+  page = url_fetch(url);
   if (!page) {
     musicd_log(LOG_ERROR, "lyrics", "can't fetch lyrics page");
+    free(url);
     return NULL;
   }
   
   lyrics = parse_lyrics_page(page);
   free(page);
-  return lyrics;
+
+  result = lyrics_new();
+  result->lyrics = lyrics;
+  result->source = url;
+  return result;
 }
 
 static char *find_lyrics_page_name(const char *page, const char *title)
@@ -126,12 +150,11 @@ static char *find_lyrics_page_name(const char *page, const char *title)
 /**
  * LyricsWiki fetching
  */
-char *lyrics_fetch(const track_t *track)
+lyrics_t *lyrics_fetch(const track_t *track)
 {
   char *url, *page, *page_name;
   char *p;
-  char *lyrics;
-
+  lyrics_t *lyrics;
 
   /* Try the exact page */
 
@@ -184,7 +207,7 @@ char *lyrics_fetch(const track_t *track)
 void *lyrics_task(void *data)
 {
   track_t *track;
-  char *lyrics;
+  lyrics_t *lyrics;
   int64_t id = *((int64_t *)data);
   free(data);
   
@@ -195,7 +218,8 @@ void *lyrics_task(void *data)
 
   lyrics = lyrics_fetch(track);
   library_lyrics_set(id, lyrics);
-  
+
+  lyrics_free(lyrics);
   return NULL;
 }
 

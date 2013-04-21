@@ -20,11 +20,19 @@
 
 #include "track.h"
 
+typedef struct lyrics {
+  char *lyrics;
+  char *source;
+} lyrics_t;
+
+lyrics_t *lyrics_new();
+void lyrics_free();
+
 /**
  * Lyrics fetching (some more or less ugly scraping and magic) from
  * lyrics.wikia.com
  */
-char *lyrics_fetch(const track_t *track);
+lyrics_t *lyrics_fetch(const track_t *track);
 
 /**
  * Lyrics fetching task handler.

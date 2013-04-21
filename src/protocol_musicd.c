@@ -363,7 +363,7 @@ exit:
 
 static int method_lyrics(self_t *self, char *p)
 {
-  char *lyrics;
+  lyrics_t *lyrics;
   time_t ltime = 0;
   int64_t id = get_int(p, "track");
   int64_t *id_ptr = malloc(sizeof(int64_t));
@@ -377,8 +377,9 @@ static int method_lyrics(self_t *self, char *p)
       client_send(self->client, "lyrics\nstatus=unavailable\n\n");
     }
   } else {
-    client_send(self->client, "lyrics\nlyrics:=%d\n\n%s", strlen(lyrics),
-                lyrics);
+    client_send(self->client, "lyrics\nlyrics:=%d\n\n%s", strlen(lyrics->lyrics),
+                lyrics->lyrics);
+    lyrics_free(lyrics);
   }
   
   return 0;

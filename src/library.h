@@ -18,6 +18,7 @@
 #ifndef MUSICD_LIBRARY_H
 #define MUSICD_LIBRARY_H
 
+#include "lyrics.h"
 #include "track.h"
 
 #include <stdbool.h>
@@ -152,15 +153,15 @@ void library_image_album_set_by_directory(int64_t directory, int64_t album);
 
 
 /**
- * @Returns lyrics of @p track or NULL if not found.
- * If @p time is not NULL, *time will be set to lyricstime of @p track
+ * @returns lyrics of @p track or NULL if not found.
+ * If @p time is not NULL, *time will be set to last update time.
  */
-char *library_lyrics(int64_t track, time_t *time);
+lyrics_t *library_lyrics(int64_t track, time_t *time);
 
 /**
  * Sets lyrics of @p track to @p lyrics. Timestamp is automatically modified.
  */ 
-void library_lyrics_set(int64_t track, char *lyrics);
+void library_lyrics_set(int64_t track, lyrics_t *lyrics);
 
 track_t *library_track_by_id(int64_t id);
 
