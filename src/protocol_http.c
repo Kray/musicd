@@ -30,6 +30,8 @@
 #include "strings.h"
 #include "task.h"
 
+#include <ctype.h>
+
 typedef struct http {
   client_t *client;
 
