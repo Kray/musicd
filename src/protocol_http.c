@@ -24,6 +24,7 @@
 #include "json.h"
 #include "library.h"
 #include "log.h"
+#include "lyrics.h"
 #include "musicd.h"
 #include "query.h"
 #include "session.h"
@@ -742,6 +743,73 @@ static int method_album_images(http_t *http)
   return 0;
 }
 
+
+static void send_lyrics(http_t *http, lyrics_t *lyrics)
+{
+  json_t json;
+
+  json_init(&json);
+  json_object_begin(&json);
+  json_define(&json, "lyrics"); json_string(&json, lyrics->lyrics);
+  json_define(&json, "source"); json_string(&json, lyrics->source);
+  json_object_end(&json);
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+  json_finish(&json);
+}
+
+static int track_lyrics_cb(http_t *http, int64_t *track)
+{
+  lyrics_t *lyrics;
+  lyrics = library_lyrics(*track, NULL);
+  if (lyrics) {
+    send_lyrics(http, lyrics);
+  } else {
+    http_reply(http, "404 Not Found");
+  }
+
+  lyrics_free(lyrics);
+  free(track);
+  return 0;
+}
+
+static int method_track_lyrics(http_t *http)
+{
+  int64_t track;
+  lyrics_t *lyrics;
+  time_t ltime;
+
+  task_t *task;
+  int64_t *id_ptr;
+
+  track = args_int(http, "id");
+  if (track <= 0) {
+    http_reply(http, "400 Bad Request");
+    return 0;
+  }
+
+  lyrics = library_lyrics(track, &ltime);
+  if (lyrics) {
+    send_lyrics(http, lyrics);
+    lyrics_free(lyrics);
+    return 0;
+  }
+
+  if (!ltime) {
+    task = lyrics_task(track);
+    task_start(task);
+
+    id_ptr = malloc(sizeof(int64_t));
+    *id_ptr = track;
+
+    client_wait_task(http->client, task, (client_callback_t)track_lyrics_cb, id_ptr);
+    return 0;
+  }
+
+  http_reply(http, "404 Not Found");
+
+  return 0;
+}
+
 static int feed_write(void *opaque, uint8_t *buf, int buf_size)
 {
   http_t *http = (http_t *)opaque;
@@ -824,6 +892,8 @@ static struct method_entry methods[] = {
   { "/image", method_image, 0 },
   { "/album/image", method_album_image, 0 },
   { "/album/images", method_album_images, 0 },
+
+  { "/track/lyrics", method_track_lyrics, 0 },
 
   { "/open", method_open, 0 },
 
