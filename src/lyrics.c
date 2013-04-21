@@ -204,15 +204,15 @@ lyrics_t *lyrics_fetch(const track_t *track)
   return NULL;
 }
 
-void *lyrics_task(void *data)
+
+static void *task_func(void *args)
 {
-  track_t *track;
+  int64_t id = *((int64_t *)args);
+  track_t *track = library_track_by_id(id);
   lyrics_t *lyrics;
-  int64_t id = *((int64_t *)data);
-  free(data);
-  
-  track = library_track_by_id(id);
+
   if (!track) {
+    free(args);
     return NULL;
   }
 
@@ -220,7 +220,14 @@ void *lyrics_task(void *data)
   library_lyrics_set(id, lyrics);
 
   lyrics_free(lyrics);
+  free(args);
   return NULL;
 }
 
+task_t *lyrics_task(int64_t track)
+{
+  int64_t *args = malloc(sizeof(int64_t));
+  *args = track;
 
+  return task_new(task_func, args);
+}

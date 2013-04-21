@@ -18,6 +18,7 @@
 #ifndef MUSICD_LYRICS_H
 #define MUSICD_LYRICS_H
 
+#include "task.h"
 #include "track.h"
 
 typedef struct lyrics {
@@ -34,10 +35,7 @@ void lyrics_free();
  */
 lyrics_t *lyrics_fetch(const track_t *track);
 
-/**
- * Lyrics fetching task handler.
- * @p id_ptr int64_t * which lyrics_task will free itself
- */
-void *lyrics_task(void *id_ptr);
+
+task_t *lyrics_task(int64_t track);
 
 #endif

@@ -27,12 +27,16 @@ typedef struct task {
   int pipe[2];
 } task_t;
 
-task_t *task_start(void *(*func)(void *), void *data);
+task_t *task_new(void *(*func)(void *), void *data);
+
+void task_start(task_t *task);
+
 /**
  * @returns file descriptor which will trigger POLLIN event once the task is
  * finished
  */
 int task_pollfd(task_t *task);
+
 /**
  * Frees resources allocated by task_start
  * @warning If called before the task is actually finished bad things will
@@ -40,7 +44,11 @@ int task_pollfd(task_t *task);
  */
 void task_free(task_t *task);
 
-void task_launch(void *(*func)(void *), void *data);
+/**
+ * Starts task and automatically frees resources when it finishes.
+ * @p task is not valid after calling.
+ */
+void task_launch(task_t *task);
 
 
 #endif

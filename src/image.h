@@ -18,6 +18,8 @@
 #ifndef MUSICD_IMAGE_H
 #define MUSICD_IMAGE_H
 
+#include "task.h"
+
 #include <stdint.h>
 
 /**
@@ -33,11 +35,7 @@ const char *image_mime_type(const char *path);
  */
 char *image_create_thumbnail(const char *path, int size, int *data_size);
 
-typedef struct image_task {
-  int64_t id;
-  int size;
-} image_task_t;
 
-void *image_task(void *data);
+task_t *image_task(int64_t id, int size);
 
 #endif

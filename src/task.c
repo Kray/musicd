@@ -17,9 +17,22 @@
  */
 #include "task.h"
 
+#include "log.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+task_t *task_new(void *(*func)(void *data), void* data)
+{
+  task_t *task = malloc(sizeof(task_t));
+  memset(task, 0, sizeof(task_t));
+  task->func = func;
+  task->data = data;
+  pipe(task->pipe);
+
+  return task;
+}
 
 static void *start(void *data)
 {
@@ -31,23 +44,17 @@ static void *start(void *data)
   return NULL;
 }
 
-task_t *task_start(void *(*func)(void *data), void* data)
+void task_start(task_t *task)
 {
-  task_t *task;
   pthread_t thread;
 
-  task = malloc(sizeof(task_t));
-  memset(task, 0, sizeof(task_t));
-  task->func = func;
-  task->data = data;
-
-  pipe(task->pipe);
-
-  pthread_create(&thread, NULL, start, task);
+  if (pthread_create(&thread, NULL, start, task)) {
+    musicd_perror(LOG_FATAL, "task", "pthread_create: ");
+    abort();
+  }
   pthread_detach(thread);
-
-  return task;
 }
+
 
 int task_pollfd(task_t *task)
 {
@@ -61,9 +68,23 @@ void task_free(task_t* task)
   free(task);
 }
 
-void task_launch(void *(*func)(void *data), void* data)
+
+static void *launch(void *data)
+{
+  task_t *task = (task_t *)data;
+  task->func(task->data);
+  task_free(task);
+  return NULL;
+}
+
+void task_launch(task_t *task)
 {
   pthread_t thread;
-  pthread_create(&thread, NULL, func, data);
+
+  if (pthread_create(&thread, NULL, launch, task)) {
+    musicd_perror(LOG_FATAL, "task", "pthread_create: ");
+    abort();
+  }
   pthread_detach(thread);
+
 }

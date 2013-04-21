@@ -656,7 +656,6 @@ static int method_image(http_t *http)
   int64_t image, size;
   char *cache_name, *path;
   task_t *task;
-  image_task_t *task_args;
 
   image = args_int(http, "id");
   size = args_int(http, "size");
@@ -683,10 +682,8 @@ static int method_image(http_t *http)
     return send_image(http, cache_name);
   }
 
-  task_args = malloc(sizeof(image_task_t));
-  task_args->id = image;
-  task_args->size = size;
-  task = task_start(image_task, (void *)task_args);
+  task = image_task(image, size);
+  task_start(task);
   client_wait_task(http->client, task, (client_callback_t)send_image, cache_name);
   return 0;
 }

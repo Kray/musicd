@@ -318,7 +318,7 @@ static int method_albumimg(self_t *self, char *p)
   int data_size;
   char *cache_name;
   char *data;
-  image_task_t *task;
+  task_t *task;
 
   album = get_int(p, "album");
   size = get_int(p, "size");
@@ -337,10 +337,8 @@ static int method_albumimg(self_t *self, char *p)
   cache_name = image_cache_name(image, size);
   
   if (!cache_exists(cache_name)) {
-    task = malloc(sizeof(image_task_t));
-    task->id = image;
-    task->size = size;
-    task_launch(image_task, (void *)task);
+    task = image_task(image, size);
+    task_launch(task);
     client_send(self->client, "albumimg\nstatus=retry\n\n");
     goto exit;
   }
@@ -366,12 +364,13 @@ static int method_lyrics(self_t *self, char *p)
   lyrics_t *lyrics;
   time_t ltime = 0;
   int64_t id = get_int(p, "track");
-  int64_t *id_ptr = malloc(sizeof(int64_t));
-  *id_ptr = id;
+  task_t *task;
+
   lyrics = library_lyrics(id, &ltime);
   if (!lyrics) {
     if (ltime < (time(NULL) - 24 * 60 * 60)) {
-      task_launch(lyrics_task, (void *)id_ptr);
+      task = lyrics_task(id);
+      task_launch(task);
       client_send(self->client, "lyrics\nstatus=retry\n\n");
     } else {
       client_send(self->client, "lyrics\nstatus=unavailable\n\n");

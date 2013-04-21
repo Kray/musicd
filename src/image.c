@@ -107,28 +107,40 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
 }
 
 
-void *image_task(void *data)
+struct task_args {
+  int64_t id;
+  int size;
+};
+
+static void *task_func(struct task_args *args)
 {
-  char *buf = NULL, *cache_name, *path;
+  char *cache_name, *source_path, *buf = NULL;
   int size = 0;
-  image_task_t *task = (image_task_t *)data;
-  
+
   /* Round to closest power of two */
-  task->size = pow(2, ceil(log(task->size)/log(2)));
-  
-  cache_name = image_cache_name(task->id, task->size);
-  
-  path = library_image_path(task->id);
-  if (path) {
-    buf = image_create_thumbnail(path, task->size, &size);
+  args->size = pow(2, ceil(log(args->size)/log(2)));
+
+  source_path = library_image_path(args->id);
+  if (source_path) {
+    buf = image_create_thumbnail(source_path, args->size, &size);
   }
+
+  cache_name = image_cache_name(args->id, args->size);
 
   cache_set(cache_name, buf, size);
   
-  free(path);
-  free(buf);
+  free(source_path);
   free(cache_name);
-  free(task);
+  free(buf);
+  free(args);
   return NULL;
 }
 
+task_t *image_task(int64_t id, int size)
+{
+  struct task_args *args = malloc(sizeof(struct task_args));
+  args->id = id;
+  args->size = size;
+
+  return task_new((void *(*)(void *))task_func, args);
+}
