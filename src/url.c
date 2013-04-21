@@ -82,14 +82,21 @@ char *url_fetch(const char *url)
 }
 
 
-char* url_fetch_escaped_location(const char* server, const char* location)
+char *url_escape_location(const char *server, const char *location)
 {
-  char *encoded, *url, *result;
+  char *encoded, *result;
   
   encoded = curl_escape(location, strlen(location));
-  url = stringf("%s/%s", server, encoded);
+  result = stringf("%s/%s", server, encoded);
   curl_free(encoded);
+  return result;
+}
+
+char *url_fetch_escaped_location(const char* server, const char* location)
+{
+  char *url, *result;
   
+  url = url_escape_location(server, location);
   result = url_fetch(url);
   free(url);
   return result;

@@ -25,6 +25,8 @@
  */
 char *url_fetch(const char *url);
 
+char *url_escape_location(const char *server, const char *location);
+
 /**
  * Connects to @p server (e.g. http://example.com/) and fetches ESCAPED
  * page in @p location. Return value must be freed later. */
