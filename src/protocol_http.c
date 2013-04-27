@@ -751,6 +751,7 @@ static void send_lyrics(http_t *http, lyrics_t *lyrics)
   json_init(&json);
   json_object_begin(&json);
   json_define(&json, "lyrics"); json_string(&json, lyrics->lyrics);
+  json_define(&json, "provider"); json_string(&json, lyrics->provider);
   json_define(&json, "source"); json_string(&json, lyrics->source);
   json_object_end(&json);
   http_send_text(http, "200 OK", "text/json", json_result(&json));

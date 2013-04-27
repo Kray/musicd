@@ -174,7 +174,7 @@ static int create_schema()
     db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64, image INT64)", &error);
     db_simple_exec("CREATE TABLE tracks (file INT64, cuefile INT64, track INT, title TEXT, artist INT64, album INT64, start DOUBLE, duration DOUBLE)", &error);
     db_simple_exec("CREATE TABLE images (file INT64, album INT64)", &error);
-    db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, source TEXT, mtime INT64)", &error);
+    db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
   }
   
   if (error) {

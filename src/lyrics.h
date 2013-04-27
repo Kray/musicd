@@ -23,6 +23,7 @@
 
 typedef struct lyrics {
   char *lyrics;
+  char *provider;
   char *source;
 } lyrics_t;
 

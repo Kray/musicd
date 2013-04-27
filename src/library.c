@@ -605,7 +605,7 @@ void library_image_album_set_by_directory(int64_t directory, int64_t album)
 lyrics_t *library_lyrics(int64_t track, time_t *time)
 {
   static const char *sql =
-    "SELECT lyrics, source, mtime FROM lyrics WHERE track = ?";
+    "SELECT lyrics, provider, source, mtime FROM lyrics WHERE track = ?";
   sqlite3_stmt *query;
   int result;
   lyrics_t *lyrics;
@@ -626,7 +626,7 @@ lyrics_t *library_lyrics(int64_t track, time_t *time)
   }
   if (result == SQLITE_ROW) {
     if (time) {
-      *time = sqlite3_column_int64(query, 2);
+      *time = sqlite3_column_int64(query, 3);
     }
     if (!sqlite3_column_text(query, 0)) {
       return NULL;
@@ -635,7 +635,10 @@ lyrics_t *library_lyrics(int64_t track, time_t *time)
     lyrics = lyrics_new();
     lyrics->lyrics = strdup((const char *)sqlite3_column_text(query, 0));
     if (sqlite3_column_text(query, 1)) {
-      lyrics->source = strdup((const char *)sqlite3_column_text(query, 1));
+      lyrics->provider = strdup((const char *)sqlite3_column_text(query, 1));
+    }
+    if (sqlite3_column_text(query, 2)) {
+      lyrics->source = strdup((const char *)sqlite3_column_text(query, 2));
     }
     return lyrics;
   }
@@ -645,7 +648,7 @@ lyrics_t *library_lyrics(int64_t track, time_t *time)
 void library_lyrics_set(int64_t track, lyrics_t *lyrics)
 {
   static const char *sql =
-    "INSERT OR REPLACE INTO lyrics (track, lyrics, source, mtime) VALUES(?, ?, ?, ?)";
+    "INSERT OR REPLACE INTO lyrics (track, lyrics, provider, source, mtime) VALUES(?, ?, ?, ?, ?)";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
@@ -654,8 +657,9 @@ void library_lyrics_set(int64_t track, lyrics_t *lyrics)
 
   sqlite3_bind_int64(query, 1, track);
   sqlite3_bind_text(query, 2, lyrics ? lyrics->lyrics : NULL, -1, NULL);
-  sqlite3_bind_text(query, 3, lyrics ? lyrics->source : NULL, -1, NULL);
-  sqlite3_bind_int64(query, 4, time(NULL));
+  sqlite3_bind_text(query, 3, lyrics ? lyrics->provider : NULL, -1, NULL);
+  sqlite3_bind_text(query, 4, lyrics ? lyrics->source : NULL, -1, NULL);
+  sqlite3_bind_int64(query, 5, time(NULL));
 
   execute(query);
 }

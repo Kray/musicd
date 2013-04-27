@@ -38,6 +38,7 @@ void lyrics_free(lyrics_t *lyrics)
   }
 
   free(lyrics->lyrics);
+  free(lyrics->provider);
   free(lyrics->source);
   free(lyrics);
 }
@@ -113,6 +114,7 @@ static lyrics_t *handle_lyrics_page(const char *page_name)
 
   result = lyrics_new();
   result->lyrics = lyrics;
+  result->provider = strdup("LyricWiki");
   result->source = url;
   return result;
 }
