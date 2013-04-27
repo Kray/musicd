@@ -26,6 +26,8 @@
 #include <libavutil/opt.h>
 
 
+int musicd_av_lockmgr(void **mutex, enum AVLockOp operation);
+
 /* Compatibility stuff for older versions of ffmpeg */
 
 /*

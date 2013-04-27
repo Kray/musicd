@@ -162,6 +162,7 @@ int main(int argc, char* argv[])
 
   av_register_all();
   avcodec_register_all();
+  av_lockmgr_register(&musicd_av_lockmgr);
   
   av_log_set_level(AV_LOG_QUIET);
 
