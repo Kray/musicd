@@ -112,6 +112,11 @@ static lyrics_t *handle_lyrics_page(const char *page_name)
   lyrics = parse_lyrics_page(page);
   free(page);
 
+  if (!lyrics) {
+    free(url);
+    return NULL;
+  }
+
   result = lyrics_new();
   result->lyrics = lyrics;
   result->provider = strdup("LyricWiki");
