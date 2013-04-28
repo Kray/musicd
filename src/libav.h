@@ -22,8 +22,24 @@
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/audio_fifo.h>
-#include <libavresample/avresample.h>
 #include <libavutil/opt.h>
+
+#ifndef USE_AVRESAMPLE
+  #include <libswresample/swresample.h>
+  typedef SwrContext resampler_t;
+  #define resampler_alloc swr_alloc
+  #define resampler_init swr_init
+  #define resampler_free swr_free
+  #define resampler_convert swr_convert
+#else
+  #include <libavresample/avresample.h>
+  typedef struct AVAudioResampleContext resampler_t;
+  #define resampler_alloc avresample_alloc_context
+  #define resampler_init avresample_open
+  #define resampler_free avresample_free
+  #define resampler_convert(resampler, out, out_count, in, in_count) \
+    avresample_convert(resampler, out, 0, out_count, (uint8_t **)in, 0, in_count)
+#endif
 
 
 int musicd_av_lockmgr(void **mutex, enum AVLockOp operation);

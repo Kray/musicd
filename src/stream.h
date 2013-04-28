@@ -41,7 +41,7 @@ typedef struct stream {
   AVCodecContext *decoder;
 
   /* resample */
-  AVAudioResampleContext *resampler;
+  resampler_t *resampler;
   AVFrame *resample_frame;
   uint8_t *resample_buf;
 

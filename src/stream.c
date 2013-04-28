@@ -78,7 +78,7 @@ void stream_close(stream_t *stream)
 
   av_audio_fifo_free(stream->src_buf);
 
-  avresample_free(&stream->resampler);
+  resampler_free(&stream->resampler);
 
   avcodec_free_frame(&stream->decode_frame);
   avcodec_free_frame(&stream->resample_frame);
@@ -230,7 +230,7 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   AVCodecContext *decoder = NULL, *encoder = NULL;
   enum AVSampleFormat dst_sample_fmt;
   int dst_sample_rate;
-  AVAudioResampleContext *resampler = NULL;
+  resampler_t *resampler = NULL;
 
   if (codec_type == CODEC_TYPE_MP3) {
     dst_codec_id = AV_CODEC_ID_MP3;
@@ -262,29 +262,10 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
     goto fail;
   }
 
-
   dst_sample_fmt = find_sample_fmt(decoder->sample_fmt,
                                    dst_codec->sample_fmts);
   dst_sample_rate = find_sample_rate(decoder->sample_rate,
                                      dst_codec->supported_samplerates);
-
-  if (dst_sample_fmt != decoder->sample_fmt ||
-      dst_sample_rate != decoder->sample_rate) {
-    resampler = avresample_alloc_context();
-    av_opt_set_int(resampler, "in_channel_layout", decoder->channel_layout, 0);
-    av_opt_set_int(resampler, "out_channel_layout", decoder->channel_layout, 0);
-    av_opt_set_int(resampler, "in_sample_rate", decoder->sample_rate, 0);
-    av_opt_set_int(resampler, "out_sample_rate", dst_sample_rate, 0);
-    av_opt_set_int(resampler, "in_sample_fmt", decoder->sample_fmt, 0);
-    av_opt_set_int(resampler, "out_sample_fmt", dst_sample_fmt, 0);
-
-    result = avresample_open(resampler);
-    if (result < 0) {
-      musicd_log(LOG_ERROR, "stream", "can't open resampler: %s",
-               strerror(AVUNERROR(result)));
-      goto fail;
-    }
-  }
 
   /** @todo FIXME Hard-coded values. */
   if (bitrate < 64000 || bitrate > 320000) {
@@ -305,6 +286,31 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
     goto fail;
   }
 
+  if (decoder->channel_layout != encoder->channel_layout ||
+      decoder->sample_fmt != encoder->sample_fmt ||
+      decoder->sample_rate != encoder->sample_rate) {
+
+    resampler = resampler_alloc();
+    av_opt_set_int(resampler, "in_channel_layout", decoder->channel_layout, 0);
+    av_opt_set_int(resampler, "out_channel_layout", encoder->channel_layout, 0);
+    av_opt_set_int(resampler, "in_sample_rate", decoder->sample_rate, 0);
+    av_opt_set_int(resampler, "out_sample_rate", encoder->sample_rate, 0);
+    av_opt_set_int(resampler, "in_sample_fmt", decoder->sample_fmt, 0);
+    av_opt_set_int(resampler, "out_sample_fmt", encoder->sample_fmt, 0);
+
+    result = resampler_init(resampler);
+    if (result < 0) {
+      musicd_log(LOG_ERROR, "stream", "can't open resampler: %s",
+               strerror(AVUNERROR(result)));
+      goto fail;
+    }
+    musicd_log(LOG_DEBUG, "stream",
+               "resample: ch:%d(%d) rate:%d fmt:%d -> ch:%d(%d) rate:%d fmt:%d",
+               decoder->channel_layout, decoder->channels,
+               decoder->sample_rate, decoder->sample_fmt,
+               encoder->channel_layout, encoder->channels,
+               encoder->sample_rate, encoder->sample_fmt);
+  }
 
   stream->decoder = decoder;
   stream->encoder = encoder;
@@ -335,9 +341,17 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   return true;
 
 fail:
-  avcodec_close(decoder);
-  av_free(decoder);
-  avresample_free(&resampler);
+  if (decoder) {
+    avcodec_close(decoder);
+    av_free(decoder);
+  }
+  if (encoder) {
+    avcodec_close(encoder);
+    av_free(encoder);
+  }
+  if (resampler) {
+    resampler_free(&resampler);
+  }
   return false;
 }
 
@@ -503,14 +517,12 @@ static int decode_next(stream_t *stream)
                                         stream->encoder->sample_fmt,
                                         stream->resample_buf, buf_size, 0);
     }
+    result = resampler_convert(stream->resampler,
+                               stream->resample_frame->extended_data,
+                               stream->resample_frame->nb_samples,
+                               (const uint8_t **)frame->extended_data,
+                               frame->nb_samples);
 
-    result = avresample_convert(stream->resampler,
-                                stream->resample_frame->extended_data,
-                                stream->resample_frame->linesize[0],
-                                stream->resample_frame->nb_samples,
-                                frame->extended_data,
-                                frame->linesize[0],
-                                frame->nb_samples);
     av_audio_fifo_write(stream->src_buf,
                         (void **)stream->resample_frame->extended_data,
                         result);

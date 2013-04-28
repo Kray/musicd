@@ -30,16 +30,28 @@ SRCS =  src/cache.c \
 	src/track.c \
 	src/url.c
 
+LIBS += -lpthread -lm -lavutil -lavcodec -lavformat -lsqlite3 -lfreeimage -lcurl
 
 ifdef HTTP_BUILTIN
 	CFLAGS += -DHTTP_BUILTIN
 	SRCS += ${BUILDDIR}/http_builtin.c
 endif
 
-OBJS +=  $(SRCS:%.c=${BUILDDIR}/%.o)
-DEPS += $(OBJS)
 
-LIBS += -lpthread -lm -lavutil -lavcodec -lavformat -lavresample -lsqlite3 -lfreeimage -lcurl
+RESAMPLER ?= swresample
+
+ifeq ($(RESAMPLER), swresample)
+  LIBS += -lswresample
+else ifeq ($(RESAMPLER), avresample)
+  LIBS += -lavresample
+  CFLAGS += -DUSE_AVRESAMPLE
+else
+  $(error Unsupported resampler: $(RESAMPLER))
+endif
+
+
+OBJS += $(SRCS:%.c=${BUILDDIR}/%.o)
+DEPS += $(OBJS)
 
 
 all: musicd
