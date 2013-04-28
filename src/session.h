@@ -21,6 +21,8 @@
 
 #include <time.h>
 
+#define MAX_SESSIONS 10000
+
 typedef struct session {
   char *id;
   time_t last_request;
@@ -28,11 +30,27 @@ typedef struct session {
   /** User or NULL if share */
   char *user;
 
-  struct session *next;
+  int refs;
+
+  struct session *prev, *next;
 } session_t;
 
 
+/**
+ * @return New session with random id and reference counter of 1
+ */
 session_t *session_new();
+
+/**
+ * Raises reference counter by one
+ * @return NULL if not found
+ */
 session_t *session_get(const char *id);
+
+/**
+ * Must be called when done with the session to prevent it hanging around when
+ * it would be deleted
+ */
+void session_deref(session_t *session);
 
 #endif

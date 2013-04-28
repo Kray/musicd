@@ -440,6 +440,7 @@ static int method_auth(http_t *http)
   } else {
     session = session_new();
     session->user = strdup(user);
+    session_deref(session);
 
     musicd_log(LOG_VERBOSE, "protocol_http", "%s authed",
                http->client->address);
@@ -1183,6 +1184,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   
   result = process_request(http);
 
+  session_deref(http->session);
   free(http->query);
   free(http->path);
   free(http->args);
