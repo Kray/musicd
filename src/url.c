@@ -69,7 +69,9 @@ char *url_fetch(const char *url)
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_memory_function);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-  
+
+  musicd_log(LOG_DEBUG, "url", "fetching '%s'", url);
+
   result = curl_easy_perform(curl);
   if (result) {
     musicd_log(LOG_ERROR, "url", "fetching '%s' failed: %s", url, errorbuf);
