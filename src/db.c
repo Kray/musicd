@@ -88,7 +88,8 @@ void db_simple_exec(const char *sql, int *error)
 }
 
 
-int db_meta_get_int(const char *key)
+
+static sqlite3_stmt *meta_get(const char *key)
 {
   sqlite3_stmt *stmt;
   int result;
@@ -103,34 +104,85 @@ int db_meta_get_int(const char *key)
   
   result = sqlite3_step(stmt);
   if (result == SQLITE_DONE) {
-    return 0;
+    sqlite3_finalize(stmt);
+    return NULL;
   } else if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "db", "create_schema: sqlite3_step failed");
-    return 0;
+    musicd_log(LOG_ERROR, "db", "meta_get: sqlite3_step failed");
+    sqlite3_finalize(stmt);
+    return NULL;
   }
-  
-  result = sqlite3_column_int(stmt, 0);
-  sqlite3_finalize(stmt);
-  
-  return result;
+  return stmt;
 }
-void db_meta_set_int(const char *key, int value)
+static sqlite3_stmt *meta_set(const char *key)
 {
   sqlite3_stmt *stmt;
   static const char *sql = "INSERT OR REPLACE INTO musicd VALUES (?, ?)";
   
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "db", "can't set metadata: %s", db_error());
+    return NULL;
+  }
+
+  sqlite3_bind_text(stmt, 1, key, -1, NULL);
+  return stmt;
+}
+
+
+int db_meta_get_int(const char *key)
+{
+  int result;
+  sqlite3_stmt *stmt = meta_get(key);
+
+  if (!stmt) {
+    return 0;
+  }
+
+  result = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  return result;
+}
+void db_meta_set_int(const char *key, int value)
+{
+  sqlite3_stmt *stmt = meta_set(key);
+  if (!stmt) {
     return;
   }
 
   sqlite3_bind_text(stmt, 1, key, -1, NULL);
   sqlite3_bind_int(stmt, 2, value);
-  
+
   sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 }
 
+char *db_meta_get_string(const char *key)
+{
+  const char *result;
+  sqlite3_stmt *stmt = meta_get(key);
+
+  if (!stmt) {
+    return 0;
+  }
+
+  result = (const char *)sqlite3_column_text(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  return result ? strdup(result) : NULL;
+}
+void db_meta_set_string(const char *key, const char *value)
+{
+  sqlite3_stmt *stmt = meta_set(key);
+  if (!stmt) {
+    return;
+  }
+
+  sqlite3_bind_text(stmt, 1, key, -1, NULL);
+  sqlite3_bind_text(stmt, 2, value, -1, NULL);
+
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+}
 
 
 static int create_schema()
@@ -146,7 +198,7 @@ static int create_schema()
   
   schema = db_meta_get_int("schema");
   
-  musicd_log(LOG_DEBUG, "db", "schema: %i", schema);
+  musicd_log(LOG_DEBUG, "db", "schema: %d", schema);
 
   if (schema > 3) {
     musicd_log(LOG_ERROR, "db", "schema version higher than supported");
