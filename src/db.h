@@ -30,6 +30,8 @@ sqlite3 *db_handle();
 
 void db_simple_exec(const char *sql, int *error);
 
+const char *db_uid();
+
 int db_meta_get_int(const char *key);
 void db_meta_set_int(const char *key, int value);
 char *db_meta_get_string(const char *key);

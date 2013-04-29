@@ -19,12 +19,19 @@
 
 #include "config.h"
 #include "log.h"
+#include "strings.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 #include <sqlite3.h>
 
 static sqlite3 *db;
+
+static char *uid;
 
 static int create_schema();
 
@@ -95,6 +102,10 @@ void db_simple_exec(const char *sql, int *error)
   }
 }
 
+const char *db_uid()
+{
+  return uid;
+}
 
 
 static sqlite3_stmt *meta_get(const char *key)
@@ -192,6 +203,10 @@ void db_meta_set_string(const char *key, const char *value)
   sqlite3_finalize(stmt);
 }
 
+static void generate_uid()
+{
+  uid = stringf("%" PRIx64 "%" PRIx64 "", (int64_t)time(NULL), (int64_t)getpid());
+}
 
 static int create_schema()
 {
@@ -235,6 +250,9 @@ static int create_schema()
     db_simple_exec("CREATE TABLE tracks (file INT64, cuefile INT64, track INT, title TEXT, artist INT64, album INT64, start DOUBLE, duration DOUBLE)", &error);
     db_simple_exec("CREATE TABLE images (file INT64, album INT64)", &error);
     db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
+
+    generate_uid();
+    db_meta_set_string("uid", uid);
   }
   
   if (error) {
