@@ -17,6 +17,7 @@
  */
 #include "db.h"
 
+#include "config.h"
 #include "log.h"
 
 #include <stdio.h>
@@ -27,8 +28,15 @@ static sqlite3 *db;
 
 static int create_schema();
 
-int db_open(const char *file)
+int db_open()
 {
+  char *file;
+
+  file = config_to_path("db-file");
+  if (!file) {
+    musicd_log(LOG_ERROR, "db", "db-file not set");
+    return -1;
+  }
 
   if (sqlite3_open(file, &db) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "db", "can't open '%s': %s", file, db_error());

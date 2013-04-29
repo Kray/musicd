@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <sqlite3.h>
 
-int db_open(const char *file);
+int db_open();
 void db_close();
 
 const char *db_error();

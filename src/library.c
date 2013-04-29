@@ -28,21 +28,7 @@
 
 int library_open()
 {
-  char *file;
-  
-  file = config_to_path("db-file");
-  if (!file) {
-    musicd_log(LOG_ERROR, "library", "db-file not set");
-    return -1;
-  }
-  
-  if (db_open(file)) {
-    musicd_log(LOG_ERROR, "library", "can't open database");
-    return -1;
-  }
-  
   return 0;
-  
 }
 
 static bool prepare_query(const char *sql, sqlite3_stmt **query)

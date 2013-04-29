@@ -19,6 +19,7 @@
 
 #include "cache.h"
 #include "config.h"
+#include "db.h"
 #include "libav.h"
 #include "library.h"
 #include "log.h"
@@ -165,6 +166,11 @@ int main(int argc, char* argv[])
   av_lockmgr_register(&musicd_av_lockmgr);
   
   av_log_set_level(AV_LOG_QUIET);
+
+  if (db_open()) {
+    musicd_log(LOG_FATAL, "library", "can't open database");
+    return -1;
+  }
 
   if (library_open()) {
     musicd_log(LOG_FATAL, "main", "could not open library");
