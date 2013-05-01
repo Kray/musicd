@@ -21,15 +21,27 @@
 #include <pthread.h>
 
 typedef struct task {
+  /* Set before starting/launching */
   void *(*func)(void *);
   void *data;
+  int worker; /**< Is this CPU intensive tasks */
 
+  /* Private */
   int pipe[2];
+  int running;
+  int detached; /* Launched with task_launch */
+  struct task *prev, *next;
 } task_t;
 
-task_t *task_new(void *(*func)(void *), void *data);
+task_t *task_new();
 
 void task_start(task_t *task);
+
+/**
+ * Starts task and automatically frees resources when it finishes.
+ * @p task is not valid after calling.
+ */
+void task_launch(task_t *task);
 
 /**
  * @returns file descriptor which will trigger POLLIN event once the task is
@@ -43,12 +55,6 @@ int task_pollfd(task_t *task);
  * happen
  */
 void task_free(task_t *task);
-
-/**
- * Starts task and automatically frees resources when it finishes.
- * @p task is not valid after calling.
- */
-void task_launch(task_t *task);
 
 
 #endif

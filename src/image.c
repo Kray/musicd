@@ -138,9 +138,14 @@ static void *task_func(struct task_args *args)
 
 task_t *image_task(int64_t id, int size)
 {
+  task_t *task = task_new();
   struct task_args *args = malloc(sizeof(struct task_args));
   args->id = id;
   args->size = size;
 
-  return task_new((void *(*)(void *))task_func, args);
+  task->func = (void *(*)(void *))task_func;
+  task->data = args;
+  task->worker = 1;
+
+  return task;
 }

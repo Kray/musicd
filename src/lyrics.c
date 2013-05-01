@@ -233,8 +233,12 @@ static void *task_func(void *args)
 
 task_t *lyrics_task(int64_t track)
 {
+  task_t *task = task_new();
   int64_t *args = malloc(sizeof(int64_t));
   *args = track;
 
-  return task_new(task_func, args);
+  task->func = task_func;
+  task->data = args;
+
+  return task;
 }
