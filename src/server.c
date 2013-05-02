@@ -233,7 +233,12 @@ int server_start()
   TAILQ_INIT(&clients);
   build_pollfds();
   
-  listen(master_sock, 5);
+  if (listen(master_sock, SOMAXCONN)) {
+    musicd_perror(LOG_ERROR, "server", "listen: ");
+    close(master_sock);
+    master_sock = -1;
+    return -1;
+  }
   
   if (pthread_create(&thread, NULL, thread_func, NULL)) {
     musicd_perror(LOG_ERROR, "server", "can't create thread");
