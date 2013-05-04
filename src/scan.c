@@ -120,6 +120,7 @@ static int64_t scan_file(const char *path, int64_t directory)
       musicd_log(LOG_DEBUG, "scan", "track: %s", path);
       library_track_add(track, directory);
       track_free(track);
+      file = library_file(path, 0);
     }
   } 
   return file;
