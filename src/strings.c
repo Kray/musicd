@@ -36,9 +36,18 @@ string_t *string_new()
   return string;
 }
 
+string_t *string_of(char *string2)
+{
+  string_t *string = malloc(sizeof(string_t));
+  string->string = string2;
+  string->size = strlen(string2);
+  string->max_size = string->size;
+  return string;
+}
+
 string_t *string_from(const char *string2)
 {
-  string_t *string = string_new();
+  string_t *string = malloc(sizeof(string_t));
   string->string = strdup(string2);
   string->size = strlen(string->string);
   string->max_size = string->size;

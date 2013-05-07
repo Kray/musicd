@@ -33,7 +33,15 @@ typedef struct string {
 
 string_t *string_new();
 
-string_t *string_from(const char *string2);
+/**
+ * Starts using @p string as data. @p string is no longer valid after calling
+ */
+string_t *string_of(char *string);
+
+/**
+ * Copies contents from @p string
+ */
+string_t *string_from(const char *string);
 
 /** Frees @p string and returns internal buffer which must be freed later. */
 char *string_release(string_t *string);
