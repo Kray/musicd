@@ -517,6 +517,44 @@ finish:
   return 0;
 }
 
+static int method_track_index(http_t *http)
+{
+  query_t *query = query_tracks_new();
+  json_t json;
+  int64_t id, index;
+
+  id = args_int(http, "id");
+  if (id <= 0) {
+    http_reply(http, "400 Bad Request");
+    return 0;
+  }
+
+  parse_query_filters(http, query);
+  parse_query_sort(http, query);
+
+  index = query_index(query, id);
+  if (index < 0) {
+    http_reply(http, "500 Internal Server Error");
+    goto finish;
+  }
+
+  json_init(&json);
+  json_object_begin(&json);
+
+  json_define(&json, "index");
+  json_int64(&json, index - 1);
+
+  json_object_end(&json);
+
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+
+  json_finish(&json);
+
+finish:
+  query_close(query);
+  return 0;
+}
+
 static int method_artists(http_t *http)
 {
   query_t *query = query_artists_new();
@@ -888,6 +926,7 @@ static struct method_entry methods[] = {
   { "/auth", method_auth, NO_AUTH },
 
   { "/tracks", method_tracks, 0 },
+  { "/track/index", method_track_index, 0 },
   { "/artists", method_artists, 0 },
   { "/albums", method_albums, 0 },
 
@@ -1178,7 +1217,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
     http->cookies = strextract(p1, p2);
   }
 
-  musicd_log(LOG_DEBUG, "protocol_http", "cookies: '%s'", http->cookies);
+  /*musicd_log(LOG_DEBUG, "protocol_http", "cookies: '%s'", http->cookies);*/
 
   attach_session(http);
   
