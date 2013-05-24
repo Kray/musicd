@@ -90,6 +90,11 @@ int query_sort_from_string(query_t *query, const char *sort);
 int64_t query_count(query_t *query);
 
 /**
+ * @returns <0 on error, 0 if not found; positive value is index + 1
+ */
+int64_t query_index(query_t *query, int64_t id);
+
+/**
  * Starts the query. After calling this filters or sorting can't be
  * modified anymore.
  */

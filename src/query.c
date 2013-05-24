@@ -66,9 +66,18 @@ query_field_t query_field_from_string(const char *string)
 
 
 struct query_format {
-  const char *body;
-  const char *count;
-  const char **maps;
+  const char **maps; /**< Field maps */
+
+  const char *body; /**< Main query results */
+  const char *count; /**< Result set size  */
+  /** Index of id in result set
+   *  @note Currently we just count through rowids
+   */
+  const char *index;
+
+  const char *from; /**< From clause */
+
+  const char *join; /**< Join clause */
 };
 
 static const char *track_maps[QUERY_FIELD_ALL + 1] = {
@@ -85,9 +94,15 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
 };
 static struct query_format track_query = {
-  "SELECT tracks.rowid AS id, file.path AS file, cuefile.path AS cuefile, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration FROM tracks JOIN files AS file ON tracks.file = file.rowid LEFT OUTER JOIN files AS cuefile ON tracks.cuefile = cuefile.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
-  "SELECT COUNT(tracks.rowid) FROM tracks LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid",
-  track_maps
+  track_maps,
+
+  " SELECT tracks.rowid AS id, file.path AS file, cuefile.path AS cuefile, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration ",
+  " SELECT COUNT(tracks.rowid) ",
+  " SELECT tracks.rowid ",
+
+  " FROM tracks ",
+
+  " JOIN files AS file ON tracks.file = file.rowid LEFT OUTER JOIN files AS cuefile ON tracks.cuefile = cuefile.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid ",
 };
 
 static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
@@ -104,9 +119,15 @@ static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
   "(COALESCE(artists.name, ''))",
 };
 static struct query_format artist_query = {
-  "SELECT artists.rowid AS artistid, artists.name AS artist FROM artists",
-  "SELECT COUNT(artists.rowid) FROM artists",
-  artist_maps
+  artist_maps,
+
+  " SELECT artists.rowid AS artistid, artists.name AS artist ",
+  " SELECT COUNT(artists.rowid) ",
+  " SELECT artists.rowid ",
+
+  " FROM artists ",
+
+  " "
 };
 
 static const char *album_maps[QUERY_FIELD_ALL + 1] = {
@@ -123,9 +144,14 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   "(COALESCE(albums.name, ''))",
 };
 static struct query_format album_query = {
-  "SELECT albums.rowid AS albumid, albums.name AS album FROM albums",
-  "SELECT COUNT(albums.rowid) FROM albums",
-  album_maps
+  album_maps,
+  " SELECT albums.rowid AS albumid, albums.name AS album ",
+  " SELECT COUNT(albums.rowid) ",
+  " SELECT albums.rowid ",
+
+  " FROM albums ",
+
+  " "
 };
 
 struct query {
@@ -300,7 +326,7 @@ static char *build_filters(query_t *query)
 }
 
 /* Bind filters from query to stmt */
-void bind_filters(query_t *query, sqlite3_stmt *stmt)
+static void bind_filters(query_t *query, sqlite3_stmt *stmt)
 {
   int i, n;
   for (i = 1, n = 1; i <= QUERY_FIELD_ALL; ++i) {
@@ -311,13 +337,111 @@ void bind_filters(query_t *query, sqlite3_stmt *stmt)
   }
 }
 
-static sqlite3_stmt *start(query_t *query, const char *body)
+int64_t query_count(query_t *query)
 {
   string_t *sql = string_new();
   char *where = build_filters(query);
   sqlite3_stmt *stmt;
+  int64_t result;
   
-  string_appendf(sql, "%s %s", body, where);
+  string_append(sql, query->format->count);
+  string_append(sql, query->format->from);
+  string_append(sql, query->format->join);
+  string_append(sql, where);
+  free(where);
+
+  musicd_log(LOG_DEBUG, "query", "%s", string_string(sql));
+
+  if (sqlite3_prepare_v2(db_handle(),
+                         string_string(sql), -1,
+                         &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "query", "can't prepare '%s': %s",
+               string_string(sql), db_error());
+    string_free(sql);
+    return -1;
+  }
+  string_free(sql);
+
+  bind_filters(query, stmt);
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "query", "query_count: sqlite3_step failed");
+    result = -1;
+    goto finish;
+  }
+  result = sqlite3_column_int64(stmt, 0);
+
+finish:
+  sqlite3_finalize(stmt);
+  return result;
+}
+
+int64_t query_index(query_t *query, int64_t id)
+{
+  string_t *sql = string_new();
+  char *where = build_filters(query);
+  sqlite3_stmt *stmt;
+  int64_t result;
+  int64_t index = 1;
+
+  string_append(sql, query->format->index);
+  string_append(sql, query->format->from);
+  string_append(sql, query->format->join);
+  string_append(sql, where);
+  free(where);
+
+  if (string_size(query->order) > 0) {
+    string_appendf(sql, " ORDER BY %s", string_string(query->order));
+  }
+
+  musicd_log(LOG_DEBUG, "query", "%s", string_string(sql));
+
+  if (sqlite3_prepare_v2(db_handle(),
+                         string_string(sql), -1,
+                         &stmt, NULL) != SQLITE_OK) {
+    musicd_log(LOG_ERROR, "query", "can't prepare '%s': %s",
+               string_string(sql), db_error());
+    string_free(sql);
+    return -1;
+  }
+  string_free(sql);
+
+  bind_filters(query, stmt);
+
+  while (1) {
+    result = sqlite3_step(stmt);
+    if (result == SQLITE_DONE) {
+      result = 0;
+      goto finish;
+    }
+    if (result != SQLITE_ROW) {
+      musicd_log(LOG_ERROR, "query", "query_count: sqlite3_step failed");
+      result = -1;
+      goto finish;
+    }
+    if (sqlite3_column_int64(stmt, 0) == id) {
+      result = index;
+      goto finish;
+    }
+    ++index;
+  }
+
+finish:
+  sqlite3_finalize(stmt);
+  return result;
+}
+
+int query_start(query_t *query)
+{
+  string_t *sql = string_new();
+  char *where = build_filters(query);
+  sqlite3_stmt *stmt;
+
+  string_append(sql, query->format->body);
+  string_append(sql, query->format->from);
+  string_append(sql, query->format->join);
+  string_append(sql, where);
   free(where);
 
   if (string_size(query->order) > 0) {
@@ -331,45 +455,18 @@ static sqlite3_stmt *start(query_t *query, const char *body)
   musicd_log(LOG_DEBUG, "query", "%s", string_string(sql));
 
   if (sqlite3_prepare_v2(db_handle(),
-                        string_string(sql), -1,
-                        &stmt, NULL)!= SQLITE_OK) {
+                         string_string(sql), -1,
+                         &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "query", "can't prepare '%s': %s",
                string_string(sql), db_error());
     string_free(sql);
-    return NULL;
+    return -1;
   }
   string_free(sql);
 
   bind_filters(query, stmt);
 
-  return stmt;
-}
-
-int64_t query_count(query_t *query)
-{
-  int64_t result;
-  sqlite3_stmt *stmt = start(query, query->format->count);
-  if (!stmt) {
-    return -1;
-  }
-
-  result = sqlite3_step(stmt);
-  if (result != SQLITE_ROW) {
-    musicd_log(LOG_ERROR, "query", "query_count: sqlite3_step failed");
-    return -1;
-  }
-  result = sqlite3_column_int64(stmt, 0);
-
-  sqlite3_finalize(stmt);
-  return result;
-}
-
-int query_start(query_t *query)
-{
-  query->stmt = start(query, query->format->body);
-  if (!query->stmt) {
-    return -1;
-  }
+  query->stmt = stmt;
 
   return 0;
 }
