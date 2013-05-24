@@ -25,7 +25,6 @@
 
 static const char *field_names[QUERY_FIELD_ALL] = {
   "",
-  "id",
   "trackid",
   "artistid",
   "albumid",
@@ -39,7 +38,6 @@ static const char *field_names[QUERY_FIELD_ALL] = {
 /* All id fields. */
 static bool id_fields[QUERY_FIELD_ALL + 1] = {
   false,
-  true,
   true,
   true,
   true,
@@ -76,7 +74,6 @@ struct query_format {
 static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   "tracks.rowid",
-  "tracks.rowid",
   "tracks.artist",
   "tracks.album",
   "tracks.title",
@@ -95,7 +92,6 @@ static struct query_format track_query = {
 
 static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
-  "artists.rowid",
   NULL,
   "artists.rowid",
   NULL,
@@ -115,7 +111,6 @@ static struct query_format artist_query = {
 
 static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
-  "albums.rowid",
   NULL,
   NULL,
   "albums.rowid",
