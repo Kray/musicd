@@ -33,6 +33,8 @@
 
 #include <ctype.h>
 
+#define MAX_HEADER_SIZE (10 * 1024) /* One kilobyte */
+
 typedef struct http {
   client_t *client;
 
@@ -1150,7 +1152,6 @@ static void http_close(void *self)
 
 static int http_process(void *self, const char *buf, size_t buf_size)
 {
-  (void)buf_size;
   http_t *http = (http_t *)self;
   const char *end, *p1, *p2;
   int result = 0;
@@ -1158,6 +1159,14 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   /* Do we have all headers? */
   end = strstr(buf, "\r\n\r\n");
   if (!end) {
+    if (buf_size > MAX_HEADER_SIZE) {
+      /* Way too big header */
+      musicd_log(LOG_VERBOSE, "protocol_http",
+                 "MAX_HEADER_SIZE exceeded (%d > %d)",
+                 buf_size, MAX_HEADER_SIZE);
+      http_reply(http, "400 Bad Request");
+      return -1;
+    }
     /* Not enough data */
     return 0;
   }
