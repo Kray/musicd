@@ -651,6 +651,8 @@ static int method_albums(http_t *http)
     json_object_begin(&json);
     json_define(&json, "id");       json_int64(&json, album.albumid);
     json_define(&json, "album");    json_string(&json, album.album);
+    json_define(&json, "image");    json_int64(&json, album.image);
+    json_define(&json, "tracks");   json_int64(&json, album.tracks);
     json_object_end(&json);
   }
   json_array_end(&json);

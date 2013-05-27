@@ -35,6 +35,7 @@ typedef enum {
   QUERY_FIELD_ALBUM,
   QUERY_FIELD_TRACK,
   QUERY_FIELD_DURATION,
+  QUERY_FIELD_TRACKS,
   QUERY_FIELD_ALL,
 } query_field_t;
 
@@ -111,6 +112,8 @@ int query_artists_next(query_t *query, query_artist_t *artist);
 typedef struct {
   int64_t albumid;
   char *album;
+  int64_t image;
+  int64_t tracks;
 } query_album_t;
 int query_albums_next(query_t *query, query_album_t *album);
 

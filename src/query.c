@@ -33,6 +33,7 @@ static const char *field_names[QUERY_FIELD_ALL] = {
   "album",
   "track",
   "duration",
+  "tracks",
 };
 
 /* All id fields. */
@@ -41,6 +42,7 @@ static bool id_fields[QUERY_FIELD_ALL + 1] = {
   true,
   true,
   true,
+  false,
   false,
   false,
   false,
@@ -90,6 +92,7 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   "albums.name",
   "tracks.track",
   "tracks.duration",
+  NULL,
   /* Special case... */
   "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
 };
@@ -112,6 +115,7 @@ static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   NULL,
   "artists.name",
+  NULL,
   NULL,
   NULL,
   NULL,
@@ -140,12 +144,13 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   "albums.name",
   NULL,
   NULL,
+  "(SELECT COUNT(rowid) FROM tracks WHERE tracks.album = albums.rowid)",
   /* Special case... */
   "(COALESCE(albums.name, ''))",
 };
 static struct query_format album_query = {
   album_maps,
-  " SELECT albums.rowid AS albumid, albums.name AS album ",
+  " SELECT albums.rowid AS albumid, albums.name AS album, albums.image AS image, (SELECT COUNT(rowid) FROM tracks WHERE tracks.album = albums.rowid) AS tracks ",
   " SELECT COUNT(albums.rowid) ",
   " SELECT albums.rowid ",
 
@@ -554,6 +559,8 @@ int query_albums_next(query_t *query, query_album_t *album)
 
   album->albumid = sqlite3_column_int64(stmt, 0);
   album->album = (char *)sqlite3_column_text(stmt, 1);
+  album->image = sqlite3_column_int64(stmt, 2);
+  album->tracks = sqlite3_column_int64(stmt, 3);
 
   return 0;
 }
