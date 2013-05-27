@@ -34,13 +34,14 @@
 #include <strings.h>
 #include <unistd.h>
 
+#define MAX_CLIENTS 1024
+
 static int master_sock = -1;
 static pthread_t thread;
 
 static struct client_list_t clients;
 static struct pollfd *poll_fds = NULL;
 static int poll_nfds = 1, nb_clients = 0;
-
 
 static void build_pollfds()
 {
@@ -261,6 +262,14 @@ client_t *server_accept()
   if (fd < 0) {
     musicd_perror(LOG_ERROR, "server", "can't accept incoming connection");
     abort();
+    return NULL;
+  }
+
+  if (nb_clients + 1 > MAX_CLIENTS) {
+    musicd_log(LOG_VERBOSE, "server",
+               "MAX_CLIENTS reached (%d > %d), terminating new client",
+               nb_clients + 1, MAX_CLIENTS);
+    close(fd);
     return NULL;
   }
 
