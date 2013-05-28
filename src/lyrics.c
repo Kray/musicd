@@ -159,7 +159,7 @@ static char *find_lyrics_page_name(const char *page, const char *title)
  */
 lyrics_t *lyrics_fetch(const track_t *track)
 {
-  char *url, *page, *page_name;
+  char *url, *page, *page_name, *artist;
   char *p;
   lyrics_t *lyrics;
 
@@ -174,10 +174,12 @@ lyrics_t *lyrics_fetch(const track_t *track)
 
 
   /* Try finding the exact song from API search and try that exact page */
-  
+
+  artist = url_escape(track->artist);
   url = stringf(
     "http://lyrics.wikia.com/api.php?func=getArtist&artist=%s&fmt=text",
-    track->artist);
+    artist);
+  free(artist);
   page = url_fetch(url);
   free(url);
   if (!page) {
