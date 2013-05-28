@@ -25,6 +25,8 @@
  */
 char *url_fetch(const char *url);
 
+char *url_escape(const char *string);
+
 char *url_escape_location(const char *server, const char *location);
 
 /**

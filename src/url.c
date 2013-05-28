@@ -83,6 +83,10 @@ char *url_fetch(const char *url)
   return data.data;
 }
 
+char *url_escape(const char *string)
+{
+  return curl_escape(string, strlen(string));
+}
 
 char *url_escape_location(const char *server, const char *location)
 {
