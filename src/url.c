@@ -85,11 +85,17 @@ char *url_fetch(const char *url)
 
 char *url_escape(const char *string)
 {
+  if (!string) {
+    return NULL;
+  }
   return curl_escape(string, strlen(string));
 }
 
 char *url_escape_location(const char *server, const char *location)
 {
+  if (!server || !location) {
+    return NULL;
+  }
   char *encoded, *result;
   
   encoded = curl_escape(location, strlen(location));
@@ -103,6 +109,10 @@ char *url_fetch_escaped_location(const char* server, const char* location)
   char *url, *result;
   
   url = url_escape_location(server, location);
+  if (!url) {
+    return NULL;
+  }
+
   result = url_fetch(url);
   free(url);
   return result;
