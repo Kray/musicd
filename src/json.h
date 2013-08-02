@@ -39,6 +39,7 @@ void json_object_end(json_t *json);
 void json_array_begin(json_t *json);
 void json_array_end(json_t *json);
 void json_define(json_t *json, const char *name);
+void json_bool(json_t *json, int b);
 void json_int(json_t *json, int i);
 void json_int64(json_t *json, int64_t i);
 void json_string(json_t *json, const char *string);

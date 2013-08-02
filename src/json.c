@@ -73,6 +73,13 @@ void json_define(json_t *json, const char *name)
   string_appendf(json->buf, "\"%s\":", name);
 }
 
+void json_bool(json_t *json, int b)
+{
+  comma(json);
+  string_append(json->buf, b ? "true" : "false");
+  json->comma = 1;
+}
+
 void json_int(json_t *json, int i)
 {
   comma(json);
