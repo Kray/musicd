@@ -1121,7 +1121,7 @@ static int http_detect(const char *buf, size_t buf_size)
 {
   (void)buf_size;
   
-  if (!config_to_bool("enable-http")) {
+  if (config_to_bool("disable-http")) {
     return -1;
   }
 
