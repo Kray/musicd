@@ -56,7 +56,7 @@ static char *parse_lyrics_page(char *page)
   int gap = 0;
   uint32_t chr;
   char *tmp;
-  string_t *string = string_new(), *result;
+  string_t *string, *result;
   
   p = strstr(page, "<div class='lyricbox'>");
   
@@ -64,6 +64,8 @@ static char *parse_lyrics_page(char *page)
     return NULL;
   }
   
+  string = string_new();
+
   for (; *p != '\0'; ++p) {
     if (string_size(string) > 0 && gap > 48) {
       break;
@@ -128,16 +130,20 @@ static char *find_lyrics_page_name(const char *page, const char *title)
 {
   const char *p, *end;
   char *result;
+  char *search_title = stringf("%s\n", title);
   
   /* Exact match */
-  p = strstr(page, title);
+  p = strstr(page, search_title);
   if (!p) {
     /* Case-insensitive match */
-    p = strcasestr(page, title);
+    p = strcasestr(page, search_title);
     if (!p) {
+      free(search_title);
       return NULL;
     }
   }
+
+  free(search_title);
   
   for (; p != page && *p != '\n'; --p) { }
   ++p;
@@ -146,9 +152,7 @@ static char *find_lyrics_page_name(const char *page, const char *title)
     end = p + strlen(p);
   }
   
-  result = malloc(end - p + 1);
-  memcpy(result, p, end - p);
-  result[end - p] = '\0';
+  result = strextract(p, end);
 
   return result;
 }
@@ -192,7 +196,7 @@ lyrics_t *lyrics_fetch(const track_t *track)
     lyrics = handle_lyrics_page(page_name);
     free(page_name);
     if (lyrics) {
-      return lyrics;
+      goto finish;
     }
   }
 
@@ -206,11 +210,13 @@ lyrics_t *lyrics_fetch(const track_t *track)
     lyrics = handle_lyrics_page(page_name);
     free(page_name);
     if (lyrics) {
-      return lyrics;
+      goto finish;
     }
   }
-  
-  return NULL;
+
+finish:
+  free(page);
+  return lyrics;
 }
 
 
@@ -230,6 +236,7 @@ static void *task_func(void *args)
 
   lyrics_free(lyrics);
   free(args);
+  track_free(track);
   return NULL;
 }
 
