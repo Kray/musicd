@@ -25,42 +25,24 @@
 
 #include <curl/curl.h>
 
-struct curl_buffer {
-  char *data;
-  size_t size;
-  size_t max_size;
-};
 
 static size_t
 write_memory_function(void *data, size_t size, size_t nmemb, void *opaque)
 {
   size_t realsize = size * nmemb;
-  struct curl_buffer *buffer = (struct curl_buffer *)opaque;
+  string_t *buf = (string_t *)opaque;
   
-  if (buffer->size + realsize > buffer->max_size) {
-    while (buffer->size + realsize > buffer->max_size) {
-      buffer->max_size *= 2;
-    }
-    buffer->data = realloc(buffer->data, buffer->max_size + 1);
-  }
-  
-  memcpy(buffer->data + buffer->size, data, realsize);
-  buffer->size += realsize;
-  buffer->data[buffer->size] = '\0';
+  string_nappend(buf, data, realsize);
   
   return realsize;
 }
 
 char *url_fetch(const char *url)
 {
-  struct curl_buffer data;
+  string_t *buf = string_new();
   CURL *curl;
   char errorbuf[CURL_ERROR_SIZE];
   CURLcode result;
-  
-  data.data = malloc(1025);
-  data.max_size = 1024;
-  data.size = 0;
 
   curl = curl_easy_init();
   
@@ -68,19 +50,19 @@ char *url_fetch(const char *url)
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_memory_function);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, buf);
 
   musicd_log(LOG_DEBUG, "url", "fetching '%s'", url);
 
   result = curl_easy_perform(curl);
   if (result) {
     musicd_log(LOG_ERROR, "url", "fetching '%s' failed: %s", url, errorbuf);
-    free(data.data);
-    data.data = NULL;
+    string_free(buf);
+    buf = NULL;
   }
   
   curl_easy_cleanup(curl);
-  return data.data;
+  return buf ? string_release(buf) : NULL;
 }
 
 char *url_escape(const char *string)
