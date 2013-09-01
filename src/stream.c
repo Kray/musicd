@@ -43,6 +43,7 @@ stream_t *stream_new()
 {
   stream_t *stream = malloc(sizeof(stream_t));
   memset(stream, 0, sizeof(stream_t));
+
   av_init_packet(&stream->src_packet);
   return stream;
 }
@@ -54,11 +55,31 @@ void stream_close(stream_t *stream)
   }
 
   track_free(stream->track);
-  free(stream->dst_data);
+
+  av_free_packet(&stream->src_packet);
+  av_free_packet(&stream->encode_packet);
+
+  avcodec_free_frame(&stream->decode_frame);
+  avcodec_free_frame(&stream->resample_frame);
+  avcodec_free_frame(&stream->encode_frame);
+
+  av_audio_fifo_free(stream->src_buf);
+
+  resampler_free(&stream->resampler);
+  
+  if (stream->decoder) {
+    avcodec_close(stream->decoder);
+  }
+  if (stream->encoder) {
+    avcodec_close(stream->encoder);
+    av_free(stream->encoder);
+  }
+
   av_free(stream->dst_iobuf);
   av_free(stream->dst_ioctx);
 
-  av_free_packet(&stream->src_packet);
+  av_free(stream->resample_buf);
+  av_free(stream->encode_buf);
 
   if (stream->src_ctx) {
     avformat_close_input(&stream->src_ctx);
@@ -66,26 +87,6 @@ void stream_close(stream_t *stream)
   if (stream->dst_ctx) {
     avformat_free_context(stream->dst_ctx);
   }
-  
-  if (stream->decoder) {
-    avcodec_close(stream->decoder);
-    av_free(stream->decoder);
-  }
-  if (stream->encoder) {
-    avcodec_close(stream->encoder);
-    av_free(stream->encoder);
-  }
-
-  av_audio_fifo_free(stream->src_buf);
-
-  resampler_free(&stream->resampler);
-
-  avcodec_free_frame(&stream->decode_frame);
-  avcodec_free_frame(&stream->resample_frame);
-  avcodec_free_frame(&stream->encode_frame);
-
-  av_free(stream->resample_buf);
-  av_free(stream->encode_buf);
 
   free(stream);
 }
@@ -247,8 +248,7 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
     return false;
   }
 
-  decoder = avcodec_alloc_context3(stream->src_codec);
-  avcodec_copy_context(decoder, stream->src_ctx->streams[0]->codec);
+  decoder = stream->src_ctx->streams[0]->codec;
 
   /* Try to figure out common sample format to skip format conversion */
   decoder->request_sample_fmt =
@@ -343,7 +343,6 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
 fail:
   if (decoder) {
     avcodec_close(decoder);
-    av_free(decoder);
   }
   if (encoder) {
     avcodec_close(encoder);
@@ -383,7 +382,7 @@ bool stream_remux(stream_t *stream,
   dst_ctx = avformat_alloc_context();
   dst_ctx->oformat = dst_format;
 
-  dst_stream = avformat_new_stream(dst_ctx, stream->dst_codec);
+  dst_stream = avformat_new_stream(dst_ctx, NULL);
   if (!dst_stream) {
     musicd_log(LOG_ERROR, "stream", "avformat_new_stream failed");
     avformat_free_context(dst_ctx);
@@ -396,7 +395,6 @@ bool stream_remux(stream_t *stream,
   av_dict_set(&dst_ctx->metadata, "artist", stream->track->artist, 0);
   av_dict_set(&dst_ctx->metadata, "album", stream->track->album, 0);
   
-  dst_stream->codec = avcodec_alloc_context3(NULL);
   avcodec_copy_context(dst_stream->codec, stream->encoder);
 
   dst_iobuf = av_mallocz(4096);
@@ -408,6 +406,7 @@ bool stream_remux(stream_t *stream,
     avformat_free_context(dst_ctx);
     return false;
   }
+
   dst_ctx->pb = dst_ioctx;
   stream->dst_ctx = dst_ctx;
   stream->dst_iobuf = dst_iobuf;
@@ -428,9 +427,9 @@ static int read_next(stream_t *stream)
 {
   int result;
   
-  av_free_packet(&stream->src_packet);
-  
   while (1) {
+    av_free_packet(&stream->src_packet);
+
     result = av_read_frame(stream->src_ctx, &stream->src_packet);
     if (result < 0) {
       if (result == AVERROR_EOF) {
@@ -552,8 +551,7 @@ static int encode_next(stream_t *stream)
                      (void **)frame->extended_data,
                      stream->encoder->frame_size);
 
-  av_init_packet(packet);
-  packet->data = NULL;
+  av_free_packet(packet);
 
   result = avcodec_encode_audio2(stream->encoder, packet, frame, &got_packet);
 
