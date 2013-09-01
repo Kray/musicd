@@ -73,18 +73,17 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
                           FreeImage_GetWidth(img1),
                           FreeImage_GetHeight(img1));
     if (!img2) {
-      if (!img1) {
-        musicd_log(LOG_ERROR, "image", "can't crop image '%s'", path);
-        return NULL;
-      }
+      musicd_log(LOG_ERROR, "image", "can't crop image '%s'", path);
+    } else {
+      FreeImage_Unload(img1);
+      img1 = img2;
     }
-    FreeImage_Unload(img1);
-    img1 = img2;
   }
 
   img2 = FreeImage_MakeThumbnail(img1, size, 1);
   if (!img2) {
     musicd_log(LOG_ERROR, "image", "can't scale image '%s'", path);
+    FreeImage_Unload(img1);
     return NULL;
   }
 
@@ -102,6 +101,7 @@ char *image_create_thumbnail(const char *path, int size, int *data_size)
   *data_size = msize;
   
   FreeImage_CloseMemory(memory);
+  FreeImage_Unload(img1);
   
   return buf;
 }
