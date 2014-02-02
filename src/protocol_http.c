@@ -159,8 +159,19 @@ static void http_begin_headers
   /* Cross-site scripting - allows accessing the server with browser from
    * different origin, but can be a security hole. */
   if (config_to_bool("enable-xss")) {
-    client_send(http->client, "Access-Control-Allow-Origin: *\r\n");
-    client_send(http->client, "Access-Control-Allow-Credentials: *\r\n");
+    const char *origin_start = strcasestr(http->request, "\r\nOrigin: ");
+    if (origin_start) {
+      const char *origin_end = strchrnull(origin_start + 1, '\r');
+      char *origin = strextract(origin_start + 2, origin_end);
+
+      client_send(http->client, "Access-Control-Allow-");
+      client_send(http->client, origin);
+      client_send(http->client, "\r\n");
+
+      free(origin);
+
+      client_send(http->client, "Access-Control-Allow-Credentials: true\r\n");
+    }
   }
 }
 
