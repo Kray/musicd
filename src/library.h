@@ -165,6 +165,8 @@ void library_lyrics_set(int64_t track, lyrics_t *lyrics);
 
 track_t *library_track_by_id(int64_t id);
 
+int64_t library_tracks_total();
+
 int64_t library_randomid();
 
 #endif

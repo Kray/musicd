@@ -35,5 +35,8 @@
   MUSICD_STRINGIZE(MUSICD_VERSION_MICRO) \
   MUSICD_STRINGIZE(MUSICD_VERSION_TAG)
 
-  
+#include <time.h>
+
+time_t musicd_uptime();
+
 #endif

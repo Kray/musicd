@@ -28,6 +28,7 @@
 #include "musicd.h"
 #include "query.h"
 #include "session.h"
+#include "scan.h"
 #include "strings.h"
 #include "task.h"
 
@@ -205,6 +206,11 @@ static void http_reply(http_t *http, const char *status)
   http_send(http, status, "text/plain", strlen(status), status);
 }
 
+static void http_json_success(http_t *http)
+{
+  http_send_text(http, NULL, "text/json", "{success:true}");
+}
+
 static bool http_try_send_file
   (http_t *http, const char *path, const char *content_type)
 {
@@ -269,7 +275,7 @@ static char *decode_url(const char **p)
   return string_release(result);
 }
 
-static char *encode_url(const char *p)
+/*static char *encode_url(const char *p)
 {
   string_t *result = string_new();
 
@@ -283,7 +289,7 @@ static char *encode_url(const char *p)
     string_appendf(result, "%%%2hhx", *p);
   }
   return string_release(result);
-}
+}*/
 
 static char *cookie_get(http_t *http, const char *name)
 {
@@ -389,16 +395,18 @@ static int method_musicd(http_t *http)
   json_object_begin(&json);
   json_define(&json, "name"); json_string(&json, config_get("server-name"));
   json_define(&json, "version");  json_string(&json, MUSICD_VERSION_STRING);
-  json_define(&json, "http-api"); json_string(&json, "1");
+  json_define(&json, "httpapi"); json_string(&json, "1");
+
+  json_define(&json, "auth"); json_bool(&json, !config_to_bool("no-auth"));
 
   json_define(&json, "codecs");
   json_array_begin(&json);
     json_string(&json, "mp3");
   json_array_end(&json);
-  json_define(&json, "bitrate-min"); json_int(&json, 64000);
-  json_define(&json, "bitrate-max"); json_int(&json, 320000);
+  json_define(&json, "bitratemin"); json_int(&json, 64000);
+  json_define(&json, "bitratemax"); json_int(&json, 320000);
 
-  json_define(&json, "image-sizes");
+  json_define(&json, "imagesizes");
   json_array_begin(&json);
     json_int(&json, 16);
     json_int(&json, 32);
@@ -456,6 +464,44 @@ static int method_auth(http_t *http)
 finish:
   free(user);
   free(password);
+  return 0;
+}
+
+static int method_status(http_t *http)
+{
+  json_t json;
+  scan_status_t status;
+
+  scan_status(&status);
+
+  json_init(&json);
+  json_object_begin(&json);
+  json_define(&json, "uptime");    json_int64(&json, musicd_uptime());
+  json_define(&json, "tracks");    json_int64(&json, library_tracks_total());
+
+  json_define(&json, "scan");
+  json_object_begin(&json);
+  json_define(&json, "active");    json_bool(&json, status.active);
+  json_define(&json, "starttime"); json_int64(&json, status.start_time);
+  json_define(&json, "endtime");   json_int64(&json, status.end_time);
+  json_define(&json, "newtracks"); json_int(&json, status.new_tracks);
+  json_object_end(&json);
+
+  json_object_end(&json);
+
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+
+  json_finish(&json);
+
+  return 0;
+}
+
+static int method_rescan(http_t *http)
+{
+  scan_start();
+
+  http_json_success(http);
+
   return 0;
 }
 
@@ -928,6 +974,10 @@ struct method_entry {
 static struct method_entry methods[] = {
   { "/musicd", method_musicd, NO_AUTH },
   { "/auth", method_auth, NO_AUTH },
+
+  { "/status", method_status, 0 },
+
+  { "/rescan", method_rescan, 0 },
 
   { "/tracks", method_tracks, 0 },
   { "/track/index", method_track_index, 0 },

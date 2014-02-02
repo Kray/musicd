@@ -44,6 +44,9 @@ static pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static time_t last_scan = 0;
 
+static scan_status_t status = { };
+
+
 /**
  * Preferred prefixes for album image file names.
  * @see scan_image_prefix_changed
@@ -89,6 +92,20 @@ int scan_start()
   return 0;
 }
 
+void scan_track_added()
+{
+  pthread_mutex_lock(&scan_mutex);
+  ++status.new_tracks;
+  pthread_mutex_unlock(&scan_mutex);
+}
+
+void scan_status(scan_status_t *status_out)
+{
+  pthread_mutex_lock(&scan_mutex);
+  memcpy(status_out, &status, sizeof(scan_status_t));
+  pthread_mutex_unlock(&scan_mutex);
+}
+
 
 static void scan_directory(const char *dirpath, int parent);
 
@@ -119,6 +136,7 @@ static int64_t scan_file(const char *path, int64_t directory)
     if (track) {
       musicd_log(LOG_DEBUG, "scan", "track: %s", path);
       library_track_add(track, directory);
+      scan_track_added();
       track_free(track);
       file = library_file(path, 0);
     }
@@ -459,13 +477,22 @@ static void *scan_thread_func(void *data)
 {
   (void)data;
   
+  pthread_mutex_lock(&scan_mutex);
+  memset(&status, 0, sizeof(scan_status_t));
+  status.active = true;
+  status.start_time = time(NULL);
+  pthread_mutex_unlock(&scan_mutex);
+
   db_simple_exec("BEGIN TRANSACTION", NULL);
   scan();
   db_simple_exec("COMMIT TRANSACTION", NULL);
 
   pthread_mutex_lock(&scan_mutex);
   thread_running = false;
-  
+
+  status.active = false;
+  status.end_time = time(NULL);
+
   if (restart) {
     restart = 0;
     interrupted = 0;

@@ -712,6 +712,15 @@ track_t *library_track_by_id(int64_t id)
   return track;
 }
 
+int64_t library_tracks_total()
+{
+  sqlite3_stmt *query;
+  if (!prepare_query("SELECT COUNT(rowid) FROM tracks", &query)) {
+    return 0;
+  }
+  return execute_scalar(query);
+}
+
 int64_t library_randomid()
 {
   sqlite3_stmt *query;

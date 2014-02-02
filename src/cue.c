@@ -18,6 +18,7 @@
 #include "cue.h"
 #include "library.h"
 #include "log.h"
+#include "scan.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -89,7 +90,7 @@ static int read_string(const char *src, char *dst)
 
 /**
  * @todo FIXME Multiple files in same cue sheet
- * @todo FIXME Major cleanup - full rewrite probably not necessary.
+ * @todo FIXME Rewrite this garbage
  */
 bool cue_read(const char *cuepath, int64_t directory)
 {
@@ -249,6 +250,7 @@ bool cue_read(const char *cuepath, int64_t directory)
         } else {
           prev_track->duration = track->start - prev_track->start;
           library_track_add(prev_track, directory);
+          scan_track_added();
           track_free(prev_track);
           prev_track = track;
         }
@@ -279,11 +281,13 @@ bool cue_read(const char *cuepath, int64_t directory)
   if (prev_track) {
     prev_track->duration = track->start - prev_track->start;
     library_track_add(prev_track, directory);
+    scan_track_added();
     track_free(prev_track);
   }
   if (track) {
     track->duration = file_track->duration - track->start;
     library_track_add(track, directory);
+    scan_track_added();
     track_free(track);
   }
   

@@ -18,6 +18,9 @@
 #ifndef MUSICD_SCAN_H
 #define MUSICD_SCAN_H
 
+#include <stdbool.h>
+#include <time.h>
+
 /**
  * Starts scanning thread or does nothing if already active.
  * @returns 0 if already running or successfully started, nonzero on failure.
@@ -25,6 +28,23 @@
 int scan_start();
 
 void scan_stop();
+
+/**
+ * Increments status' new track counter
+ */
+void scan_track_added();
+
+typedef struct scan_status {
+  bool active;
+
+  time_t start_time;
+  time_t end_time;
+
+  int new_tracks;
+} scan_status_t;
+
+void scan_status(scan_status_t *status);
+
 
 void scan_image_prefix_changed(char *prefix);
 
