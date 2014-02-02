@@ -45,7 +45,7 @@ static pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static time_t last_scan = 0;
 
-static scan_status_t status = { };
+static scan_status_t status = { 0, 0, 0, 0 };
 
 
 /**
