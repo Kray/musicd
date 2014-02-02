@@ -85,8 +85,8 @@ struct query_format {
 static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   "tracks.rowid",
-  "tracks.artist",
-  "tracks.album",
+  "tracks.artistid",
+  "tracks.albumid",
   "tracks.title",
   "tracks.artist",
   "tracks.album",
@@ -144,13 +144,13 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   "albums.name",
   NULL,
   NULL,
-  "(SELECT COUNT(rowid) FROM tracks WHERE tracks.album = albums.rowid)",
+  "(SELECT COUNT(rowid) FROM tracks WHERE tracks.albumid = albums.rowid)",
   /* Special case... */
   "(COALESCE(albums.name, ''))",
 };
 static struct query_format album_query = {
   album_maps,
-  " SELECT albums.rowid AS albumid, albums.name AS album, albums.image AS image, (SELECT COUNT(rowid) FROM tracks WHERE tracks.album = albums.rowid) AS tracks ",
+  " SELECT albums.rowid AS albumid, albums.name AS album, albums.imageid AS imageid, (SELECT COUNT(rowid) FROM tracks WHERE tracks.albumid = albums.rowid) AS tracks ",
   " SELECT COUNT(albums.rowid) ",
   " SELECT albums.rowid ",
 
