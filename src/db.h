@@ -21,6 +21,8 @@
 #include <stdint.h>
 #include <sqlite3.h>
 
+#define MUSICD_DB_SCHEMA 4
+
 int db_open();
 void db_close();
 

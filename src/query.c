@@ -88,24 +88,24 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   "tracks.artist",
   "tracks.album",
   "tracks.title",
-  "artists.name",
-  "albums.name",
+  "tracks.artist",
+  "tracks.album",
   "tracks.track",
   "tracks.duration",
   NULL,
   /* Special case... */
-  "(COALESCE(tracks.title, '') || COALESCE(artists.name, '') || COALESCE(albums.name, ''))",
+  "(COALESCE(tracks.title, '') || COALESCE(tracks.artist, '') || COALESCE(tracks.album, ''))",
 };
 static struct query_format track_query = {
   track_maps,
 
-  " SELECT tracks.rowid AS id, file.path AS file, cuefile.path AS cuefile, tracks.track AS track, tracks.title AS title, tracks.artist AS artistid, artists.name AS artist, tracks.album AS albumid, albums.name AS album, tracks.start AS start, tracks.duration AS duration ",
+  " SELECT tracks.rowid AS id, tracks.file AS file, tracks.cuefile AS cuefile, tracks.track AS track, tracks.title AS title, tracks.artistid AS artistid, tracks.artist AS artist, tracks.albumid AS albumid, tracks.album AS album, tracks.start AS start, tracks.duration AS duration ",
   " SELECT COUNT(tracks.rowid) ",
   " SELECT tracks.rowid ",
 
   " FROM tracks ",
 
-  " JOIN files AS file ON tracks.file = file.rowid LEFT OUTER JOIN files AS cuefile ON tracks.cuefile = cuefile.rowid LEFT OUTER JOIN artists ON tracks.artist = artists.rowid LEFT OUTER JOIN albums ON tracks.album = albums.rowid ",
+  " "
 };
 
 static const char *artist_maps[QUERY_FIELD_ALL + 1] = {

@@ -23,7 +23,9 @@
 typedef struct track {
   int64_t id;
   
+  int64_t fileid;
   char *file;
+  int64_t cuefileid;
   char *cuefile;
   
   int track;

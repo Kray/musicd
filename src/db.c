@@ -223,12 +223,12 @@ static int create_schema()
   
   musicd_log(LOG_DEBUG, "db", "schema: %d", schema);
 
-  if (schema > 3) {
+  if (schema > MUSICD_DB_SCHEMA) {
     musicd_log(LOG_ERROR, "db", "schema version higher than supported");
     return -1;
   }
 
-  if (schema < 3) {
+  if (schema < MUSICD_DB_SCHEMA) {
     musicd_log(LOG_INFO, "db", "new database or old schema");
 
     /* Clear meta table */
@@ -247,9 +247,12 @@ static int create_schema()
     db_simple_exec("CREATE TABLE files (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
     db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
     db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64, image INT64)", &error);
-    db_simple_exec("CREATE TABLE tracks (file INT64, cuefile INT64, track INT, title TEXT, artist INT64, album INT64, start DOUBLE, duration DOUBLE)", &error);
+    db_simple_exec("CREATE TABLE tracks (fileid INT64, file TEXT, cuefileid INT64, cuefile TEXT, track INT, title TEXT, artistid INT64, artist TEXT, albumid INT64, album TEXT, start DOUBLE, duration DOUBLE)", &error);
     db_simple_exec("CREATE TABLE images (file INT64, album INT64)", &error);
     db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
+
+    /* Index for good default sorting */
+    db_simple_exec("CREATE INDEX tracks_default_index ON tracks (album COLLATE NOCASE ASC, track COLLATE NOCASE ASC, title COLLATE NOCASE ASC)", &error);
 
     generate_uid();
     db_meta_set_string("uid", uid);
@@ -260,7 +263,7 @@ static int create_schema()
     return -1;
   }
   
-  db_meta_set_int("schema", 3);
+  db_meta_set_int("schema", MUSICD_DB_SCHEMA);
   
   if (error) {
     musicd_log(LOG_ERROR, "db", "can't create schema");
