@@ -109,7 +109,7 @@ static char *args_str(http_t *http, const char *key)
   
   /* The parameter is set but it has no value */
   if (*p != '=') {
-    return strdup("");
+    return strcopy("");
   }
   
   result = string_new();
@@ -449,7 +449,7 @@ static int method_auth(http_t *http)
 
   } else {
     session = session_new();
-    session->user = strdup(user);
+    session->user = strcopy(user);
     session_deref(session);
 
     musicd_log(LOG_VERBOSE, "protocol_http", "%s authed",
@@ -1262,7 +1262,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   p2 = strchr(http->query, '?');
   if (!p2) {
     /* No arguments */
-    http->path = strdup(http->query);
+    http->path = strcopy(http->query);
     http->args = NULL;
   } else {
     http->path = strextract(http->query, p2);
@@ -1272,7 +1272,7 @@ static int http_process(void *self, const char *buf, size_t buf_size)
   /* Extract cookies */
   p1 = strstr(http->request, "Cookie: ");
   if (!p1) {
-    http->cookies = strdup("");
+    http->cookies = strcopy("");
   } else {
     p2 = strstrnull(p1, "\r\n");
     http->cookies = strextract(p1, p2);

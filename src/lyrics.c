@@ -121,7 +121,7 @@ static lyrics_t *handle_lyrics_page(const char *page_name)
 
   result = lyrics_new();
   result->lyrics = lyrics;
-  result->provider = strdup("LyricWiki");
+  result->provider = strcopy("LyricWiki");
   result->source = url;
   return result;
 }

@@ -19,6 +19,7 @@
 
 #include "libav.h"
 #include "log.h"
+#include "strings.h"
 
 /* First try container-level metadata. If no value is found, try
  * stream-specific metadata.
@@ -38,7 +39,7 @@ static char *get_metadata(AVFormatContext *avctx, const char *key)
 static char *copy_metadata(AVFormatContext *avctx, const char *key)
 {
   char *result = get_metadata(avctx, key);
-  return result ? strdup(result) : NULL;
+  return strcopy(result);
 }
 
 
@@ -85,7 +86,7 @@ track_t *track_from_path(const char *path)
   
   track = track_new();
   
-  track->file = strdup(path);
+  track->file = strcopy(path);
   
   tmp = get_metadata(avctx, "track");
   if (tmp) {
@@ -99,7 +100,7 @@ track_t *track_from_path(const char *path)
     for (tmp = (char *)path + strlen(path);
          tmp > path && *(tmp - 1) != '/';
          --tmp) { }
-    track->title = strdup(tmp);
+    track->title = strcopy(tmp);
   }
 
   track->artist = copy_metadata(avctx, "artist");

@@ -2,7 +2,7 @@
 BUILDDIR ?= ./build
 PREFIX ?= /usr/local
 
-CFLAGS += -g -Wall -Wextra
+CFLAGS += -g -Wall -Wextra -std=c99
 
 SRCS =  src/cache.c \
 	src/client.c \

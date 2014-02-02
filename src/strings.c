@@ -48,7 +48,7 @@ string_t *string_of(char *string2)
 string_t *string_from(const char *string2)
 {
   string_t *string = malloc(sizeof(string_t));
-  string->string = strdup(string2);
+  string->string = strcopy(string2);
   string->size = strlen(string->string);
   string->max_size = string->size;
   return string;
@@ -212,6 +212,23 @@ char *stringf(const char *format, ...)
     buf = realloc(buf, size);
   }
   return buf;
+}
+
+char *strcopy(const char *src)
+{
+  if (!src) {
+    return NULL;
+  }
+
+  size_t len;
+  char *result;
+
+  len = strlen(src);
+  result = malloc(len + 1);
+  memcpy(result, src, len);
+  result[len] = '\0';
+
+  return result;
 }
 
 const char *strcasestr(const char *haystack, const char *needle)

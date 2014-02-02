@@ -68,6 +68,9 @@ string_t *string_iconv(string_t *string, const char *to, const char *from);
  * must be freed later. */
 char *stringf(const char *format, ...);
 
+/** Essentially strdup, except checks for NULL @p src */
+char *strcopy(const char *src);
+
 /** Case-insensitive strstr. */
 const char *strcasestr(const char *haystack, const char *needle);
 

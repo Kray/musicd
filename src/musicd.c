@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
 
   config_set_hook("log-level", log_level_changed);
   config_set_hook("log-time-format", log_time_format_changed);
-  /*config_set("log-level", "debug");*/
+  config_set("log-level", "debug");
 
   config_set_hook("directory", directory_changed);
   

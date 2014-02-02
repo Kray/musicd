@@ -18,6 +18,7 @@
 #include "config.h"
 
 #include "log.h"
+#include "strings.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -306,14 +307,14 @@ void config_set(const char *key, const char *value)
     musicd_log(LOG_DEBUG, "config", "new setting: %s %s", key, value);
     setting = malloc(sizeof(setting_t));
     memset(setting, 0, sizeof(setting_t));
-    setting->key = strdup(key);
+    setting->key = strcopy(key);
     TAILQ_INSERT_TAIL(&settings, setting, settings);
   } else {
     musicd_log(LOG_DEBUG, "config", "set setting: %s %s", key, value);
     free(setting->value);
   }
   
-  setting->value = strdup(value);
+  setting->value = strcopy(value);
   
   if (setting->hook) {
     setting->hook(setting->value);

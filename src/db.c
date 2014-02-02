@@ -187,7 +187,7 @@ char *db_meta_get_string(const char *key)
   result = (const char *)sqlite3_column_text(stmt, 0);
   sqlite3_finalize(stmt);
 
-  return result ? strdup(result) : NULL;
+  return strcopy(result);
 }
 void db_meta_set_string(const char *key, const char *value)
 {

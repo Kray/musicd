@@ -19,6 +19,7 @@
 #include "library.h"
 #include "log.h"
 #include "scan.h"
+#include "strings.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -169,7 +170,7 @@ bool cue_read(const char *cuepath, int64_t directory)
         strcpy(albumartist, string1);
       } else if (track) {
         free(track->artist);
-        track->artist = strdup(string1);
+        track->artist = strcopy(string1);
       }
     } else if (!strcmp(instr, "TITLE")) {
       /*musicd_log(LOG_DEBUG, "cue", "title: %s", string1);*/
@@ -177,7 +178,7 @@ bool cue_read(const char *cuepath, int64_t directory)
         strcpy(album, string1);
       } else if (track) {
         free(track->title);
-        track->title = strdup(string1);
+        track->title = strcopy(string1);
       }
     } else if (!strcmp(instr, "FILE")) {
       if (file_track) {
@@ -257,14 +258,14 @@ bool cue_read(const char *cuepath, int64_t directory)
       }
       
       track = track_new();
-      track->cuefile = strdup(cuepath);
-      track->file = strdup(path);
+      track->cuefile = strcopy(cuepath);
+      track->file = strcopy(path);
       track->track = index;
       /* Set artist same as the album artist and replace if track spefific
        * artist is later defined. */
-      track->artist = strdup(albumartist);
-      track->album = strdup(album);
-      track->albumartist = strdup(albumartist);
+      track->artist = strcopy(albumartist);
+      track->album = strcopy(album);
+      track->albumartist = strcopy(albumartist);
     }
     
     if (!strcmp(instr, "INDEX")) {

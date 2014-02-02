@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <pthread.h>
 
@@ -442,7 +443,7 @@ static void scan()
     return;
   }
   
-  path = strdup(raw_path);
+  path = strcopy(raw_path);
   
   /* Strip possible trailing / */
   if (path[strlen(path) - 1] == '/') {

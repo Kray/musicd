@@ -451,7 +451,7 @@ char *library_image_path(int64_t image)
     musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
   }
   if (result == SQLITE_ROW) {
-    path = strdup((const char *)sqlite3_column_text(query, 0));
+    path = strcopy((const char *)sqlite3_column_text(query, 0));
   }
 
   sqlite3_finalize(query);
@@ -622,12 +622,12 @@ lyrics_t *library_lyrics(int64_t track, time_t *time)
     }
 
     lyrics = lyrics_new();
-    lyrics->lyrics = strdup((const char *)sqlite3_column_text(query, 0));
+    lyrics->lyrics = strcopy((const char *)sqlite3_column_text(query, 0));
     if (sqlite3_column_text(query, 1)) {
-      lyrics->provider = strdup((const char *)sqlite3_column_text(query, 1));
+      lyrics->provider = strcopy((const char *)sqlite3_column_text(query, 1));
     }
     if (sqlite3_column_text(query, 2)) {
-      lyrics->source = strdup((const char *)sqlite3_column_text(query, 2));
+      lyrics->source = strcopy((const char *)sqlite3_column_text(query, 2));
     }
     return lyrics;
   }
@@ -653,13 +653,6 @@ void library_lyrics_set(int64_t track, lyrics_t *lyrics)
   execute(query);
 }
 
-
-/* Used by library_track_by_id. */
-static char *dup_or_empty(const char *src)
-{
-  return src ? strdup(src) : NULL;
-}
-
 /**
  * @todo FIXME More or less ugly value duplication.
  */
@@ -668,7 +661,7 @@ track_t *library_track_by_id(int64_t id)
   sqlite3_stmt *stmt;
   track_t *track;
   int result;
-  
+
   static const char *sql =
     "SELECT rowid AS id, fileid, file, cuefileid, cuefile, track, title, artistid, artist, albumid, album, start, duration FROM tracks WHERE rowid = ?";
 
@@ -691,15 +684,15 @@ track_t *library_track_by_id(int64_t id)
   track = track_new();
   track->id = sqlite3_column_int64(stmt, 0);
   track->fileid = sqlite3_column_int64(stmt, 1);
-  track->file = dup_or_empty((const char *)sqlite3_column_text(stmt, 2));
+  track->file = strcopy((const char *)sqlite3_column_text(stmt, 2));
   track->cuefileid = sqlite3_column_int64(stmt, 3);
-  track->cuefile = dup_or_empty((const char *)sqlite3_column_text(stmt, 4));
+  track->cuefile = strcopy((const char *)sqlite3_column_text(stmt, 4));
   track->track = sqlite3_column_int(stmt, 5);
-  track->title = dup_or_empty((const char *)sqlite3_column_text(stmt, 6));
+  track->title = strcopy((const char *)sqlite3_column_text(stmt, 6));
   track->artistid = sqlite3_column_int64(stmt, 7);
-  track->artist = dup_or_empty((const char *)sqlite3_column_text(stmt, 8));
+  track->artist = strcopy((const char *)sqlite3_column_text(stmt, 8));
   track->albumid = sqlite3_column_int64(stmt, 9);
-  track->album = dup_or_empty((const char *)sqlite3_column_text(stmt, 10));
+  track->album = strcopy((const char *)sqlite3_column_text(stmt, 10));
   track->start = sqlite3_column_double(stmt, 11);
   track->duration = sqlite3_column_double(stmt, 12);
 

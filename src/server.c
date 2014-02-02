@@ -152,7 +152,7 @@ static int server_bind_tcp(const char *address)
       master_sock = -1;
       return -1;
     }
-    bcopy((char*)host->h_addr, (char*)&sockaddr.sin_addr.s_addr,
+    bcopy((char *)host->h_addr_list[0], (char *)&sockaddr.sin_addr.s_addr,
           host->h_length);
   }
   
