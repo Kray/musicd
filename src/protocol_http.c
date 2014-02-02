@@ -156,9 +156,9 @@ static void http_begin_headers
     client_send(http->client, "Content-Type: %s; charset=utf-8\r\n",
                 content_type);
   }
-  /* Cross-site scripting - allows accessing the server with browser from
-   * different origin, but can be a security hole. */
-  if (config_to_bool("enable-xss")) {
+
+  // Cross-origin resource sharing
+  if (config_to_bool("enable-cors")) {
     const char *origin_start = strcasestr(http->request, "\r\nOrigin: ");
     if (origin_start) {
       const char *origin_end = strchrnull(origin_start + 1, '\r');
