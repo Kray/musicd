@@ -236,7 +236,7 @@ static int create_schema()
 
     /* Drop all known tables (if exist) */
     db_simple_exec("DROP TABLE IF EXISTS directories", &error);
-    db_simple_exec("DROP TABLE IF EXISTS urls", &error);
+    db_simple_exec("DROP TABLE IF EXISTS files", &error);
     db_simple_exec("DROP TABLE IF EXISTS artists", &error);
     db_simple_exec("DROP TABLE IF EXISTS albums", &error);
     db_simple_exec("DROP TABLE IF EXISTS tracks", &error);
