@@ -110,18 +110,18 @@ void start_scan_signal(int signum)
   scan_start();
 }
 
-static time_t start_time;
+time_t musicd_start_time = 0;
 
 time_t musicd_uptime()
 {
-  return time(NULL) - start_time;
+  return time(NULL) - musicd_start_time;
 }
 
 
 
 int main(int argc, char* argv[])
 { 
-  start_time = time(NULL);
+  musicd_start_time = time(NULL);
 
   config_init();
 

@@ -397,7 +397,9 @@ static int method_musicd(http_t *http)
   json_define(&json, "version");  json_string(&json, MUSICD_VERSION_STRING);
   json_define(&json, "httpapi"); json_string(&json, "1");
 
-  json_define(&json, "auth"); json_bool(&json, !config_to_bool("no-auth"));
+  json_define(&json, "authed");
+  json_bool(&json, (http->session && http->session->user) ||
+                    config_to_bool("no-auth"));
 
   json_define(&json, "codecs");
   json_array_begin(&json);
@@ -476,7 +478,9 @@ static int method_status(http_t *http)
 
   json_init(&json);
   json_object_begin(&json);
-  json_define(&json, "uptime");    json_int64(&json, musicd_uptime());
+  json_define(&json, "starttime"); json_int64(&json, musicd_start_time);
+  json_define(&json, "time");      json_int64(&json, time(NULL));
+
   json_define(&json, "tracks");    json_int64(&json, library_tracks_total());
 
   json_define(&json, "scan");

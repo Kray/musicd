@@ -37,6 +37,7 @@
 
 #include <time.h>
 
+extern time_t musicd_start_time;
 time_t musicd_uptime();
 
 #endif
