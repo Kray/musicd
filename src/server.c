@@ -166,7 +166,7 @@ static int server_bind_tcp(const char *address)
     return -1;
   }
   
-  musicd_log(LOG_VERBOSE, "server", "listening on %s:%i", address, port);
+  musicd_log(LOG_VERBOSE, "server", "listening on %s:%d", address ? address : "", port);
 
   return 0;
 }
