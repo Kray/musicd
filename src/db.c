@@ -243,13 +243,13 @@ static int create_schema()
     db_simple_exec("DROP TABLE IF EXISTS images", &error);
     db_simple_exec("DROP TABLE IF EXISTS lyrics", &error);
     
-    db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parent INT64)", &error);
-    db_simple_exec("CREATE TABLE files (path TEXT UNIQUE, mtime INT64, directory INT64)", &error);
+    db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parentid INT64)", &error);
+    db_simple_exec("CREATE TABLE files (path TEXT UNIQUE, mtime INT64, directoryid INT64)", &error);
     db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
-    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artist INT64, image INT64)", &error);
+    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artistid INT64, imageid INT64)", &error);
     db_simple_exec("CREATE TABLE tracks (fileid INT64, file TEXT, cuefileid INT64, cuefile TEXT, track INT, title TEXT, artistid INT64, artist TEXT, albumid INT64, album TEXT, start DOUBLE, duration DOUBLE)", &error);
-    db_simple_exec("CREATE TABLE images (file INT64, album INT64)", &error);
-    db_simple_exec("CREATE TABLE lyrics (track INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
+    db_simple_exec("CREATE TABLE images (fileid INT64, albumid INT64)", &error);
+    db_simple_exec("CREATE TABLE lyrics (trackid INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
 
     /* Index for good default sorting */
     db_simple_exec("CREATE INDEX tracks_default_index ON tracks (album COLLATE NOCASE ASC, track COLLATE NOCASE ASC, title COLLATE NOCASE ASC)", &error);

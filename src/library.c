@@ -163,7 +163,7 @@ int64_t library_track_add(track_t *track, int64_t directory)
 int64_t library_file(const char* path, int64_t directory)
 {
   static const char *sql =
-    "INSERT INTO files (path, directory) VALUES(?, ?)";
+    "INSERT INTO files (path, directoryid) VALUES(?, ?)";
   
   sqlite3_stmt *query;
   int64_t result;
@@ -216,7 +216,7 @@ void library_file_mtime_set(int64_t file, time_t mtime)
 void library_iterate_files_by_directory
   (int64_t directory, bool (*callback)(library_file_t *file))
 {
-  static const char *sql = "SELECT rowid, path, mtime, directory FROM files WHERE directory = ?";
+  static const char *sql = "SELECT rowid, path, mtime, directoryid FROM files WHERE directoryid = ?";
   sqlite3_stmt *query;
   int result;
   library_file_t file;
@@ -248,8 +248,8 @@ void library_iterate_files_by_directory
 
 void library_file_clear(int64_t file)
 {
-  static const char *sql_tracks = "DELETE FROM tracks WHERE file = ?";
-  static const char *sql_images = "DELETE FROM images WHERE file = ?";
+  static const char *sql_tracks = "DELETE FROM tracks WHERE fileid = ?";
+  static const char *sql_images = "DELETE FROM images WHERE fileid = ?";
   sqlite3_stmt *query;
   
   if (!prepare_query(sql_tracks, &query)) {
@@ -287,7 +287,7 @@ void library_file_delete(int64_t file)
 int64_t library_directory(const char* path, int64_t parent)
 {
   static const char *sql =
-    "INSERT INTO directories (path, parent) VALUES(?, ?)";
+    "INSERT INTO directories (path, parentid) VALUES(?, ?)";
   
   sqlite3_stmt *query;
   int64_t result;
@@ -364,7 +364,7 @@ void library_directory_mtime_set(int64_t directory, time_t mtime)
 }
 int library_directory_tracks_count(int64_t directory)
 {
-  static const char *sql = "SELECT COUNT(tracks.rowid) FROM directories JOIN files ON files.directory = directories.rowid JOIN tracks ON tracks.file = files.rowid WHERE directories.rowid = ?";
+  static const char *sql = "SELECT COUNT(tracks.rowid) FROM directories JOIN files ON files.directoryid = directories.rowid JOIN tracks ON tracks.fileid = files.rowid WHERE directories.rowid = ?";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
@@ -381,7 +381,7 @@ void library_iterate_directories
    bool (*callback)(library_directory_t *directory, void *opaque),
    void *opaque)
 {
-  static const char *sql = "SELECT rowid, path, mtime, parent FROM directories WHERE parent = ?";
+  static const char *sql = "SELECT rowid, path, mtime, parentid FROM directories WHERE parentid = ?";
   sqlite3_stmt *query;
   int result;
   library_directory_t directory;
@@ -415,7 +415,7 @@ void library_iterate_directories
 int64_t library_image_add(int64_t file)
 {
   static const char *sql =
-    "INSERT INTO images (file) VALUES(?)";
+    "INSERT INTO images (fileid) VALUES(?)";
   
   sqlite3_stmt *query;
   
@@ -435,7 +435,7 @@ int64_t library_image_add(int64_t file)
 char *library_image_path(int64_t image)
 {
   static const char *sql =
-    "SELECT files.path AS path FROM images JOIN files ON images.file = files.rowid WHERE images.rowid = ?";
+    "SELECT files.path AS path FROM images JOIN files ON images.fileid = files.rowid WHERE images.rowid = ?";
   sqlite3_stmt *query;
   int result;
   char *path = NULL;;
@@ -461,7 +461,7 @@ char *library_image_path(int64_t image)
 int64_t library_album_image(int64_t album)
 {
   static const char *sql =
-    "SELECT albums.image FROM albums WHERE albums.rowid = ?";
+    "SELECT imageid FROM albums WHERE rowid = ?";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
@@ -475,7 +475,7 @@ int64_t library_album_image(int64_t album)
 
 void library_album_image_set(int64_t album, int64_t image)
 {
-  static const char *sql = "UPDATE albums SET image = ? WHERE rowid = ?";
+  static const char *sql = "UPDATE albums SET imageid = ? WHERE rowid = ?";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
@@ -492,7 +492,7 @@ void library_iterate_images_by_directory
   (int64_t directory, bool (*callback)(library_image_t *file))
 {
   static const char *sql =
-    "SELECT images.rowid AS id, files.path AS path, images.album AS album FROM files JOIN images ON images.file = files.rowid WHERE files.directory = ?;";
+    "SELECT images.rowid AS id, files.path AS path, images.albumid AS albumid FROM files JOIN images ON images.fileid = files.rowid WHERE files.directoryid = ?;";
   sqlite3_stmt *query;
   int result;
   library_image_t image;
@@ -528,7 +528,7 @@ void library_iterate_images_by_album
   (int64_t album, bool (*callback)(library_image_t *file, void *opaque), void *opaque)
 {
   static const char *sql =
-    "SELECT images.rowid AS id, files.path AS path, files.directory AS directory FROM images JOIN files ON images.file = files.rowid WHERE images.album = ?;";
+    "SELECT images.rowid AS id, files.path AS path, files.directoryid AS directoryid FROM images JOIN files ON images.fileid = files.rowid WHERE images.albumid = ?;";
   sqlite3_stmt *query;
   int result;
   library_image_t image;
@@ -563,7 +563,7 @@ void library_iterate_images_by_album
 int64_t library_album_by_directory(int64_t directory)
 {
   static const char *sql =
-    "SELECT tracks.album FROM directories JOIN files ON files.directory = directories.rowid JOIN tracks ON tracks.file = files.rowid WHERE directories.rowid = ? GROUP BY tracks.album ORDER BY COUNT(tracks.album) DESC LIMIT 1";
+    "SELECT tracks.albumid FROM directories JOIN files ON files.directoryid = directories.rowid JOIN tracks ON tracks.fileid = files.rowid WHERE directories.rowid = ? GROUP BY tracks.albumid ORDER BY COUNT(tracks.albumid) DESC LIMIT 1";
   sqlite3_stmt *query;
   
   if (!prepare_query(sql, &query)) {
@@ -578,7 +578,7 @@ int64_t library_album_by_directory(int64_t directory)
 void library_image_album_set_by_directory(int64_t directory, int64_t album)
 {
   static const char *sql =
-    "UPDATE images SET album = ? WHERE file IN (SELECT rowid FROM files WHERE directory = ?)";
+    "UPDATE images SET albumid = ? WHERE fileid IN (SELECT rowid FROM files WHERE directoryid = ?)";
   sqlite3_stmt *query;
   
   if (!prepare_query(sql, &query)) {
@@ -594,7 +594,7 @@ void library_image_album_set_by_directory(int64_t directory, int64_t album)
 lyrics_t *library_lyrics(int64_t track, time_t *time)
 {
   static const char *sql =
-    "SELECT lyrics, provider, source, mtime FROM lyrics WHERE track = ?";
+    "SELECT lyrics, provider, source, mtime FROM lyrics WHERE trackid = ?";
   sqlite3_stmt *query;
   int result;
   lyrics_t *lyrics;
@@ -637,7 +637,7 @@ lyrics_t *library_lyrics(int64_t track, time_t *time)
 void library_lyrics_set(int64_t track, lyrics_t *lyrics)
 {
   static const char *sql =
-    "INSERT OR REPLACE INTO lyrics (track, lyrics, provider, source, mtime) VALUES(?, ?, ?, ?, ?)";
+    "INSERT OR REPLACE INTO lyrics (trackid, lyrics, provider, source, mtime) VALUES(?, ?, ?, ?, ?)";
   sqlite3_stmt *query;
 
   if (!prepare_query(sql, &query)) {
