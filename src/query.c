@@ -144,7 +144,7 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   "albums.name",
   NULL,
   NULL,
-  "(SELECT COUNT(rowid) FROM tracks WHERE tracks.albumid = albums.rowid)",
+  "albums.tracks",
   /* Special case... */
   "(COALESCE(albums.name, ''))",
 };
