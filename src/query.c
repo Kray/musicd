@@ -150,7 +150,7 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
 };
 static struct query_format album_query = {
   album_maps,
-  " SELECT albums.rowid AS albumid, albums.name AS album, albums.imageid AS imageid, (SELECT COUNT(rowid) FROM tracks WHERE tracks.albumid = albums.rowid) AS tracks ",
+  " SELECT albums.rowid AS albumid, albums.name AS album, albums.imageid AS imageid, albums.tracks AS tracks ",
   " SELECT COUNT(albums.rowid) ",
   " SELECT albums.rowid ",
 

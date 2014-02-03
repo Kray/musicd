@@ -115,6 +115,21 @@ static int64_t field_rowid_create(const char *table, const char *field, const ch
   return sqlite3_last_insert_rowid(db_handle());
 }
 
+static void increment_album_tracks(int64_t album)
+{
+  static const char *sql =
+    "UPDATE albums SET tracks = tracks + 1 WHERE rowid = ?";
+
+  sqlite3_stmt *query;
+
+  if (!prepare_query(sql, &query)) {
+    return;
+  }
+
+  sqlite3_bind_int64(query, 1, album);
+
+  execute(query);
+}
 
 int64_t library_track_add(track_t *track, int64_t directory)
 {
@@ -154,6 +169,10 @@ int64_t library_track_add(track_t *track, int64_t directory)
 
   if (!execute(query)) {
     return -1;
+  }
+
+  if (track->album) {
+    increment_album_tracks(track->albumid);
   }
 
   return sqlite3_last_insert_rowid(db_handle());
@@ -248,10 +267,18 @@ void library_iterate_files_by_directory
 
 void library_file_clear(int64_t file)
 {
+  static const char *sql_album_tracks =
+    "UPDATE albums SET tracks = (SELECT COUNT(tracks.rowid) FROM tracks WHERE tracks.albumid = albums.rowid AND tracks.fileid != ?1) WHERE albums.rowid IN (SELECT albumid FROM tracks WHERE fileid = ?1)";
   static const char *sql_tracks = "DELETE FROM tracks WHERE fileid = ?";
   static const char *sql_images = "DELETE FROM images WHERE fileid = ?";
   sqlite3_stmt *query;
   
+  if (!prepare_query(sql_album_tracks, &query)) {
+    return;
+  }
+  sqlite3_bind_int64(query, 1, file);
+  execute(query);
+
   if (!prepare_query(sql_tracks, &query)) {
     return;
   }

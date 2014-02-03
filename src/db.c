@@ -246,7 +246,7 @@ static int create_schema()
     db_simple_exec("CREATE TABLE directories (path TEXT UNIQUE, mtime INT64, parentid INT64)", &error);
     db_simple_exec("CREATE TABLE files (path TEXT UNIQUE, mtime INT64, directoryid INT64)", &error);
     db_simple_exec("CREATE TABLE artists (name TEXT UNIQUE)", &error);
-    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artistid INT64, imageid INT64)", &error);
+    db_simple_exec("CREATE TABLE albums (name TEXT UNIQUE, artistid INT64, imageid INT64, tracks INT DEFAULT 0)", &error);
     db_simple_exec("CREATE TABLE tracks (fileid INT64, file TEXT, cuefileid INT64, cuefile TEXT, track INT, title TEXT, artistid INT64, artist TEXT, albumid INT64, album TEXT, start DOUBLE, duration DOUBLE)", &error);
     db_simple_exec("CREATE TABLE images (fileid INT64, albumid INT64)", &error);
     db_simple_exec("CREATE TABLE lyrics (trackid INT64 UNIQUE, lyrics TEXT, provider TEXT, source TEXT, mtime INT64)", &error);
