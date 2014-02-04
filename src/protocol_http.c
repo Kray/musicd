@@ -50,6 +50,27 @@ typedef struct http {
   stream_t *stream;
 } http_t;
 
+struct { codec_type_t codec; const char *mime; } codecs[] = {
+  {CODEC_TYPE_MP3, "audio/mpeg"},
+  {CODEC_TYPE_OGG_VORBIS, "audio/ogg"},
+  {CODEC_TYPE_FLAC, "audio/flac"},
+  {CODEC_TYPE_AAC, "audio/aac"},
+  {CODEC_TYPE_OPUS, "audio/opus"},
+  {CODEC_TYPE_NONE, NULL}
+};
+
+static const char *get_mime_by_codec(codec_type_t codec)
+{
+  int i = 0;
+  while (codecs[i].codec != CODEC_TYPE_NONE)
+  {
+    if (codecs[i].codec == codec)
+      return codecs[i].mime;
+    i++;
+  }
+  return codecs[0].mime;
+}
+
 static const char *args_ptr(http_t *http, const char *key)
 {
   const char *p = http->args;
@@ -977,12 +998,19 @@ static int method_open(http_t *http)
   int64_t id, seek, bitrate;
   track_t *track = NULL;
   stream_t *stream;
+  codec_type_t codec;
+  if (config_get_value("codec"))
+    codec = codec_type_from_string(config_get("codec"));
+  else
+    codec = codec_type_from_string("mp3");
 
   id = args_int(http, "id");
   seek = args_int(http, "seek");
   bitrate = args_int(http, "bitrate");
   if (!bitrate) {
-    bitrate = 196000;
+    bitrate = config_to_int("bitrate") * 1000;
+    if (bitrate == 0)
+      bitrate = 192000;
   } else if (bitrate < 64000) {
     bitrate = 64000;
   } else if (bitrate > 320000) {
@@ -1004,7 +1032,7 @@ static int method_open(http_t *http)
     return 0;
   }
 
-  if (!stream_transcode(stream, CODEC_TYPE_MP3, bitrate)
+  if (!stream_transcode(stream, codec, bitrate)
    || !stream_remux(stream, feed_write, http)) {
     http_reply(http, "500 Internal Server Error");
     stream_close(stream);
@@ -1020,7 +1048,7 @@ static int method_open(http_t *http)
   }
 
   http->stream = stream;
-  http_send_headers(http, "200 OK", "audio/mpeg", -1);
+  http_send_headers(http, "200 OK", get_mime_by_codec(codec), -1);
   stream_start(stream);
   client_start_feed(http->client);
 

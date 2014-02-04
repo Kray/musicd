@@ -242,6 +242,12 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
     dst_codec_id = AV_CODEC_ID_MP3;
   } else if (codec_type == CODEC_TYPE_OGG_VORBIS) {
     dst_codec_id = AV_CODEC_ID_VORBIS;
+  } else if (codec_type == CODEC_TYPE_FLAC) {
+    dst_codec_id = AV_CODEC_ID_FLAC;
+  } else if (codec_type == CODEC_TYPE_AAC) {
+    dst_codec_id = AV_CODEC_ID_AAC;
+  } else if (codec_type == CODEC_TYPE_OPUS) {
+    dst_codec_id = AV_CODEC_ID_OPUS;
   } else {
     musicd_log(LOG_ERROR, "stream", "unsupported encoder requested");
     return false;;
@@ -378,6 +384,12 @@ bool stream_remux(stream_t *stream,
     format_name = "mp3";
   } else if (stream->dst_codec_type == CODEC_TYPE_OGG_VORBIS) {
     format_name = "ogg";
+  } else if (stream->dst_codec_type == CODEC_TYPE_FLAC) {
+    format_name = "flac";
+  } else if (stream->dst_codec_type == CODEC_TYPE_AAC) {
+    format_name = "aac";
+  } else if (stream->dst_codec_type == CODEC_TYPE_OPUS) {
+    format_name = "opus";
   } else {
     return false;
   }

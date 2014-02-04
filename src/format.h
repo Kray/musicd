@@ -25,6 +25,9 @@ typedef enum codec_type {
   CODEC_TYPE_NONE = 0,
   CODEC_TYPE_MP3,
   CODEC_TYPE_OGG_VORBIS,
+  CODEC_TYPE_FLAC,
+  CODEC_TYPE_AAC,
+  CODEC_TYPE_OPUS,
 } codec_type_t;
 
 codec_type_t codec_type_from_string(const char *string);

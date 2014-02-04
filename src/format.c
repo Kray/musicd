@@ -28,6 +28,15 @@ codec_type_t codec_type_from_string(const char *string)
   if (!strcmp(string, "ogg") || !strcmp(string, "vorbis")) {
     return CODEC_TYPE_OGG_VORBIS;
   }
+  if (!strcmp(string, "flac")) {
+    return CODEC_TYPE_FLAC;
+  }
+  if (!strcmp(string, "aac")) {
+    return CODEC_TYPE_AAC;
+  }
+  if (!strcmp(string, "opus")) {
+    return CODEC_TYPE_OPUS;
+  }
   return CODEC_TYPE_OTHER;
 }
 
