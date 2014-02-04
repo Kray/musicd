@@ -970,8 +970,8 @@ static int method_open(http_t *http)
   }
 
   http->stream = stream;
-  stream_start(stream);
   http_send_headers(http, "200 OK", "audio/mpeg", -1);
+  stream_start(stream);
   client_start_feed(http->client);
 
   return 0;
