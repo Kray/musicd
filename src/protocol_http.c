@@ -811,6 +811,7 @@ static int method_album_image(http_t *http)
   client_send(http->client,
               "HTTP/1.1 302 Found\r\n"
               "Server: musicd/" MUSICD_VERSION_STRING "\r\n"
+              "Content-Length: 0\r\n"
               "Location: /image?id=%" PRId64 "&size=%" PRId64 "\r\n"
               "\r\n", image, size);
   return 0;
