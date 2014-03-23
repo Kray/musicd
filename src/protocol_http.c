@@ -1186,10 +1186,6 @@ static int process_request(http_t *http)
 static int http_detect(const char *buf, size_t buf_size)
 {
   (void)buf_size;
-  
-  if (config_to_bool("disable-http")) {
-    return -1;
-  }
 
   if (strbeginswith(buf, "GET ")
    || strbeginswith(buf, "HEAD ")) {
