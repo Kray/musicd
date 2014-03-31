@@ -69,6 +69,7 @@ static bool like_fields[QUERY_FIELD_ALL + 1] = {
   false,
   false,
   false,
+  true,
 };
 
 query_field_t query_field_from_string(const char *string)
