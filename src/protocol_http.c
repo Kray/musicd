@@ -933,7 +933,8 @@ static bool root_iterate_directories(library_directory_t *directory, void *opaqu
 
 static int method_root(http_t *http)
 {
-  char *request_path = http->path + strlen("/root"),
+  const char *raw_temp = http->path + strlen("/root");
+  char *request_path = decode_url(&raw_temp),
        *root_path = library_root_path(),
        *full_path = stringf("%s%s", root_path, request_path);
   int64_t directory = library_directory(full_path, -1);
@@ -958,6 +959,7 @@ static int method_root(http_t *http)
   http_send_text(http, "200 OK", "text/json", json_result(&json));
 
 finish:
+  free(request_path);
   free(root_path);
   free(full_path);
   return 0;
