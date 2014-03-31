@@ -131,6 +131,30 @@ static void increment_album_tracks(int64_t album)
   execute(query);
 }
 
+char *library_root_path()
+{
+  static const char *sql =
+    "SELECT path FROM directories WHERE parentid = 0";
+  sqlite3_stmt *query;
+  int result;
+  char *path = NULL;;
+
+  if (!prepare_query(sql, &query)) {
+    return NULL;
+  }
+
+  result = sqlite3_step(query);
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
+  }
+  if (result == SQLITE_ROW) {
+    path = strcopy((const char *)sqlite3_column_text(query, 0));
+  }
+
+  sqlite3_finalize(query);
+  return path;
+}
+
 int64_t library_track_add(track_t *track, int64_t directory)
 {
   static const char *sql =
@@ -335,6 +359,31 @@ int64_t library_directory(const char* path, int64_t parent)
   result = execute_scalar(query);
 
   return result ? result : sqlite3_last_insert_rowid(db_handle());
+}
+char *library_directory_path(int64_t directory)
+{
+  static const char *sql =
+    "SELECT path FROM directories WHERE rowid = ?";
+  sqlite3_stmt *query;
+  int result;
+  char *path = NULL;;
+
+  if (!prepare_query(sql, &query)) {
+    return NULL;
+  }
+
+  sqlite3_bind_int64(query, 1, directory);
+
+  result = sqlite3_step(query);
+  if (result != SQLITE_DONE && result != SQLITE_ROW) {
+    musicd_log(LOG_ERROR, "library", "sqlite3_step failed for '%s'", sql);
+  }
+  if (result == SQLITE_ROW) {
+    path = strcopy((const char *)sqlite3_column_text(query, 0));
+  }
+
+  sqlite3_finalize(query);
+  return path;
 }
 static bool delete_files_cb(library_file_t *file)
 {

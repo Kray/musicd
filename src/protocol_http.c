@@ -34,7 +34,7 @@
 
 #include <ctype.h>
 
-#define MAX_HEADER_SIZE (10 * 1024) /* One kilobyte */
+#define MAX_HEADER_SIZE (10 * 1024) /* Ten kilobytes */
 
 typedef struct http {
   client_t *client;
@@ -916,6 +916,53 @@ static int method_track_lyrics(http_t *http)
   return 0;
 }
 
+static bool root_iterate_directories(library_directory_t *directory, void *opaque)
+{
+  json_t *json = opaque;
+  const char *name;
+
+  for (name = directory->path + strlen(directory->path) - 1; name > directory->path && *(name - 1) != '/'; --name) { }
+
+  json_object_begin(json);
+  json_define(json, "name");
+  json_string(json, name);
+  json_object_end(json);
+
+  return true;
+}
+
+static int method_root(http_t *http)
+{
+  char *request_path = http->path + strlen("/root"),
+       *root_path = library_root_path(),
+       *full_path = stringf("%s%s", root_path, request_path);
+  int64_t directory = library_directory(full_path, -1);
+
+  musicd_log(LOG_DEBUG, "protocol_http", "%s %s %s", request_path, root_path, full_path);
+
+  if (!directory) {
+    http_reply(http, "404 Not Found");
+    goto finish;
+  }
+
+  json_t json;
+
+  json_init(&json);
+  json_object_begin(&json);
+  json_define(&json, "directories");
+  json_array_begin(&json);
+  library_iterate_directories(directory, root_iterate_directories, &json);
+  json_array_end(&json);
+  json_object_end(&json);
+
+  http_send_text(http, "200 OK", "text/json", json_result(&json));
+
+finish:
+  free(root_path);
+  free(full_path);
+  return 0;
+}
+
 static int feed_write(void *opaque, uint8_t *buf, int buf_size)
 {
   http_t *http = (http_t *)opaque;
@@ -979,8 +1026,9 @@ static int method_open(http_t *http)
 }
 
 
-#define NO_AUTH 0x02 /* Allow access without authorisation */
-#define SHARE_CAPABLE 0x04 /* Supports restricted share access */
+#define NO_AUTH 0x02 // Allow access without authorisation
+#define SHARE_CAPABLE 0x04 // Supports restricted share access
+#define ONLY_PREFIX 0x08 // Will be called as long as path begins with the name
 
 struct method_entry {
   const char *name;
@@ -1005,6 +1053,8 @@ static struct method_entry methods[] = {
   { "/album/images", method_album_images, 0 },
 
   { "/track/lyrics", method_track_lyrics, 0 },
+
+  { "/root", method_root, ONLY_PREFIX },
 
   { "/open", method_open, 0 },
 
@@ -1078,7 +1128,11 @@ static int call_method(http_t *http)
   struct method_entry *method;
 
   for (method = methods; method->name != NULL; ++method) {
-    if (!strcmp(method->name, http->path)) {
+
+    if ((method->flags & ONLY_PREFIX &&
+         strlen(http->path) > strlen(method->name) &&
+         !strncmp(method->name, http->path, strlen(method->name))) ||
+        !strcmp(method->name, http->path)) {
       /* Forbidden if
        * - auth is not disabled
        * - method requires authorisation

@@ -26,6 +26,14 @@
 
 int library_open();
 
+/**
+ * @warning FIXME: Library can currently have multiple root paths without
+ * any conflict handling. The path returned is first root path found in the
+ * collection.
+ * @returns path which must be freed or NULL if not found.
+ */
+char *library_root_path();
+
 int64_t library_track_add(track_t *track, int64_t directory);
 
 /**
@@ -77,6 +85,10 @@ void library_iterate_files_by_directory
  * @returns Directory id or 0 if not existing and @p parent < 0. On error < 0.
  */
 int64_t library_directory(const char *path, int64_t parent);
+/**
+ * @returns path which must be freed or NULL if not found.
+ */
+char *library_directory_path(int64_t directory);
 /**
  * Recursively calls library_directory_delete for each directory with parent
  * @p directory in database and library_file_delete for each file with directory

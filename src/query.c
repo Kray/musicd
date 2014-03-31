@@ -18,6 +18,7 @@
 #include "query.h"
 
 #include "db.h"
+#include "library.h"
 #include "log.h"
 #include "strings.h"
 
@@ -34,6 +35,8 @@ static const char *field_names[QUERY_FIELD_ALL] = {
   "track",
   "duration",
   "tracks",
+  "directory",
+  "directoryprefix",
 };
 
 /* All id fields. */
@@ -48,7 +51,24 @@ static bool id_fields[QUERY_FIELD_ALL + 1] = {
   false,
   false,
   false,
+  false,
+  false,
   false
+};
+
+static bool like_fields[QUERY_FIELD_ALL + 1] = {
+  false,
+  false,
+  false,
+  false,
+  true,
+  true,
+  true,
+  false,
+  false,
+  false,
+  false,
+  false,
 };
 
 query_field_t query_field_from_string(const char *string)
@@ -93,6 +113,8 @@ static const char *track_maps[QUERY_FIELD_ALL + 1] = {
   "tracks.track",
   "tracks.duration",
   NULL,
+  "tracks.file",
+  "tracks.file",
   /* Special case... */
   "(COALESCE(tracks.title, '') || COALESCE(tracks.artist, '') || COALESCE(tracks.album, ''))",
 };
@@ -115,6 +137,8 @@ static const char *artist_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   NULL,
   "artists.name",
+  NULL,
+  NULL,
   NULL,
   NULL,
   NULL,
@@ -145,6 +169,8 @@ static const char *album_maps[QUERY_FIELD_ALL + 1] = {
   NULL,
   NULL,
   "albums.tracks",
+  NULL,
+  NULL,
   /* Special case... */
   "(COALESCE(albums.name, ''))",
 };
@@ -222,7 +248,7 @@ void query_filter(query_t *query, query_field_t field,
     return;
   }
   if (!id_fields[field]) {
-    query->filters[field] = stringf("%%%s%%", filter);
+    query->filters[field] = stringf(like_fields[field] ? "%%%s%%" : "%s", filter);
     return;
   }
 
@@ -319,7 +345,11 @@ static char *build_filters(query_t *query)
     }
 
     if (!id_fields[i]) {
-      string_appendf(sql, "%s LIKE ?", query->format->maps[i]);
+      if (i == QUERY_FIELD_DIRECTORY) {
+        string_appendf(sql, "%s LIKE ? AND %s NOT LIKE ?", query->format->maps[i], query->format->maps[i]);
+      } else {
+        string_appendf(sql, "%s LIKE ?", query->format->maps[i]);
+      }
     } else {
       /* Id-field means it can be a comma-separated list of decimal numbers.
        * The filter is validated when it is set, so we can add it to the query
@@ -327,19 +357,37 @@ static char *build_filters(query_t *query)
       string_appendf(sql, "%s IN (%s)", query->format->maps[i], query->filters[i]);
     }
   }
+
   return string_release(sql);
 }
 
 /* Bind filters from query to stmt */
 static void bind_filters(query_t *query, sqlite3_stmt *stmt)
 {
+  char *root_path = library_root_path(), *temp;
+
   int i, n;
   for (i = 1, n = 1; i <= QUERY_FIELD_ALL; ++i) {
-    if (query->filters[i] && !id_fields[i]) {
-      sqlite3_bind_text(stmt, n, query->filters[i], -1, NULL);
-      ++n;
+    if (!query->filters[i] || id_fields[i]) {
+      continue;
     }
+
+    if (i == QUERY_FIELD_DIRECTORY) {
+      temp = stringf("%s%s%%", root_path, query->filters[i]);
+      sqlite3_bind_text(stmt, n, temp, -1, free);
+      ++n;
+      temp = stringf("%s%s%%/%%", root_path, query->filters[i]);
+      sqlite3_bind_text(stmt, n, temp, -1, free);
+    } else if (i == QUERY_FIELD_DIRECTORYPREFIX) {
+      temp = stringf("%s%s%%", root_path, query->filters[i]);
+      sqlite3_bind_text(stmt, n, temp, -1, free);
+    } else {
+      sqlite3_bind_text(stmt, n, query->filters[i], -1, NULL);
+    }
+    ++n;
   }
+
+  free(root_path);
 }
 
 int64_t query_count(query_t *query)
