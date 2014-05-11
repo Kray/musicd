@@ -96,12 +96,17 @@ bool stream_open(stream_t *stream, track_t* track)
   int result;
   AVFormatContext *ctx = NULL;
   AVCodec *src_codec;
+  AVDictionary *opts = NULL;
+  char tmp[20];
   
   if (!track) {
     return false;
   }
 
-  result = avformat_open_input(&ctx, track->file, NULL, NULL);
+  snprintf(tmp, sizeof(tmp), "%" PRId64, track->track_index);
+  av_dict_set(&opts, "track_index", tmp, 0);
+
+  result = avformat_open_input(&ctx, track->file, NULL, &opts);
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't open file '%s': %s",
                track->file, strerror(AVUNERROR(result)));
