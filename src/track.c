@@ -80,10 +80,62 @@ void tracks_free(track_t **tracks)
   free(tracks);
 }
 
+static track_t *track_create(const char *path, AVFormatContext *avctx, 
+                             int track_index)
+{
+  track_t *track;
+  char *tmp;
+
+  /*av_dump_format(avctx, 0, NULL, 0);*/
+
+  /* For each metadata first try container-level metadata. If no value is
+   * found, try stream-specific metadata.
+   */
+
+  track = track_new();
+
+  track->file = strcopy(path);
+
+  track->title = copy_metadata(avctx, "title") ? : copy_metadata(avctx, "song");
+
+  if (!track->title) {
+    /* No title in metadata, use plain filename (no basename, it's crap). */
+    for (tmp = (char *)path + strlen(path);
+        tmp > path && *(tmp - 1) != '/';
+        --tmp) { }
+    track->title = strcopy(tmp);
+  }
+
+  track->track_index = track_index;
+
+  tmp = get_metadata(avctx, "track");
+  if (tmp) {
+    sscanf(tmp, "%d", &track->track);
+  } else {
+    track->track = track_index;
+  }
+
+  track->artist = copy_metadata(avctx, "artist") ? : copy_metadata(avctx, "author");
+  track->album = copy_metadata(avctx, "album") ? : copy_metadata(avctx, "game");
+  track->albumartist = copy_metadata(avctx, "albumartist");
+
+  if (avctx->duration > 0) {
+    track->duration = avctx->duration / (double)AV_TIME_BASE;
+  } else {
+    track->duration =
+      avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
+  }
+
+  if (track->duration <= 0) {
+    track_free(track);
+    track = NULL;
+  }
+  return track;
+}
+
 track_t **tracks_from_path(const char *path)
 {
   AVFormatContext *avctx = NULL;
-  track_t *track;
   track_t **tracks; /* NULL terminated */
   int track_count;
   int i;
@@ -106,52 +158,10 @@ track_t **tracks_from_path(const char *path)
   tracks = calloc(track_count + 1, sizeof(track_t *));
 
   for (i = 0; i < track_count; ++i) {
-    /* For each metadata first try container-level metadata. If no value is
-     * found, try stream-specific metadata.
-     */
-
-    track = track_new();
-
-    track->file = strcopy(path);
-
-    tmp = get_metadata(avctx, "track");
-    if (tmp) {
-      sscanf(tmp, "%d", &track->track);
-    }
-
-    track->title = copy_metadata(avctx, "title");
-
-    if (!track->title) {
-      /* No title in metadata, use plain filename (no basename, it's crap). */
-      for (tmp = (char *)path + strlen(path);
-          tmp > path && *(tmp - 1) != '/';
-          --tmp) { }
-      track->title = strcopy(tmp);
-    }
-
-    if (track_count > 1) {
-      track->track = i;
-    }
-    track->artist = copy_metadata(avctx, "artist");
-    track->album = copy_metadata(avctx, "album");
-    track->albumartist = copy_metadata(avctx, "albumartist");
-
-    if (avctx->duration > 0) {
-      track->duration = avctx->duration / (double)AV_TIME_BASE;
-    } else {
-      track->duration =
-        avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
-    }
-
-    if (track->duration <= 0) {
-      track_free(track);
-      track = NULL;
-    }
-    tracks[i] = track;
+    tracks[i] = track_create(path, avctx, i);
   }
 
   avformat_close_input(&avctx);
-  printf("tracks_from_path: %p\n", tracks);
   return tracks;
 }
 
@@ -159,7 +169,6 @@ track_t *track_from_path(const char *path)
 {
   AVFormatContext *avctx = NULL;
   track_t *track;
-  char *tmp;
   
   if (avformat_open_input(&avctx, path, NULL, NULL)) {
     return NULL;
@@ -168,55 +177,8 @@ track_t *track_from_path(const char *path)
     return NULL;
   }
   
-  /*av_dump_format(avctx, 0, NULL, 0);*/
-  
-  /* For each metadata first try container-level metadata. If no value is
-   * found, try stream-specific metadata.
-   */
-  
-  track = track_new();
-  
-  track->file = strcopy(path);
-  
-  tmp = get_metadata(avctx, "track");
-  if (tmp) {
-    sscanf(tmp, "%d", &track->track);
-  }
-  
-  track->title = copy_metadata(avctx, "title");
-  tmp = copy_metadata(avctx, "tracks");
-  if (tmp)
-    printf("%s\n", tmp);
-
-  if (!track->title) {
-    /* No title in metadata, use plain filename (no basename, it's crap). */
-    for (tmp = (char *)path + strlen(path);
-         tmp > path && *(tmp - 1) != '/';
-         --tmp) { }
-    track->title = strcopy(tmp);
-  }
-
-  track->artist = copy_metadata(avctx, "artist");
-  track->album = copy_metadata(avctx, "album");
-  track->albumartist = copy_metadata(avctx, "albumartist");
-  
-  if (avctx->duration > 0) {
-    track->duration = avctx->duration / (double)AV_TIME_BASE;
-  } else {
-    track->duration =
-      avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
-  }
-  
-  if (track->duration <= 0) {
-    track_free(track);
-    track = NULL;
-  }
-  
-  /*musicd_log(LOG_DEBUG, "track",
-    "track=%i title=%s artist=%s albumartist=%s albumartist=%s duration=%i",
-    track->track, track->title, track->artist, track->album,
-    track->albumartist, track->duration);*/
-  
+  track = track_create(path, avctx, -1);
+ 
   avformat_close_input(&avctx);
   return track;
 }

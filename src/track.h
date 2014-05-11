@@ -38,6 +38,8 @@ typedef struct track {
 
   double start;
   double duration;
+
+  int64_t track_index;
   
 } track_t;
 
