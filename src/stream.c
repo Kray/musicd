@@ -272,6 +272,10 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
     bitrate = 196000;
   }
 
+  if (decoder->channel_layout == 0) {
+    decoder->channel_layout = av_get_default_channel_layout(decoder->channels);
+  }
+
   encoder = avcodec_alloc_context3(dst_codec);
   encoder->sample_rate = dst_sample_rate;
   encoder->channels = decoder->channels;
