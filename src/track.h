@@ -38,6 +38,8 @@ typedef struct track {
 
   double start;
   double duration;
+
+  int64_t trackindex;
   
 } track_t;
 
@@ -45,7 +47,9 @@ typedef struct track {
 track_t *track_new();
 
 track_t *track_from_path(const char *path);
+track_t **tracks_from_path(const char *path);
 
+void tracks_free(track_t **track);
 void track_free(track_t *track);
 
 
