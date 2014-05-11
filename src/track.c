@@ -42,12 +42,33 @@ static char *copy_metadata(AVFormatContext *avctx, const char *key)
   return strcopy(result);
 }
 
-
 track_t *track_new()
 {
   track_t *result = malloc(sizeof(track_t));
   memset(result, 0, sizeof(track_t));
   return result;
+}
+
+int is_valid_audio_file(AVFormatContext *avctx)
+{
+  /**
+   * @todo TODO Own probing for ensuring probing score high enough to be sure
+   * about the file really being an audio file. */
+
+  if (avctx->nb_streams < 1 || avctx->duration < 1) {
+    if (avformat_find_stream_info(avctx, NULL) < 0) {
+      avformat_close_input(&avctx);
+      return 0;
+    }
+  }
+
+  if (avctx->nb_streams < 1
+      || avctx->streams[0]->codec->codec_type != AVMEDIA_TYPE_AUDIO
+      || (avctx->duration && avctx->streams[0]->duration < 1)) {
+    avformat_close_input(&avctx);
+    return 0;
+  }
+  return 1;
 }
 
 track_t *track_from_path(const char *path)
@@ -56,25 +77,10 @@ track_t *track_from_path(const char *path)
   track_t *track;
   char *tmp;
   
-  /**
-   * @todo TODO Own probing for ensuring probing score high enough to be sure
-   * about the file really being an audio file. */
-  
   if (avformat_open_input(&avctx, path, NULL, NULL)) {
     return NULL;
   }
-  
-  if (avctx->nb_streams < 1 || avctx->duration < 1) {
-    if (avformat_find_stream_info(avctx, NULL) < 0) {
-      avformat_close_input(&avctx);
-      return NULL;
-    }
-  }
-  
-  if (avctx->nb_streams < 1
-   || avctx->streams[0]->codec->codec_type != AVMEDIA_TYPE_AUDIO
-   || (avctx->duration && avctx->streams[0]->duration < 1)) {
-    avformat_close_input(&avctx);
+  if (!is_valid_audio_file(avctx)) {
     return NULL;
   }
   
