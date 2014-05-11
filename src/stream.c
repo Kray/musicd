@@ -103,7 +103,7 @@ bool stream_open(stream_t *stream, track_t* track)
     return false;
   }
 
-  snprintf(tmp, sizeof(tmp), "%" PRId64, track->track_index);
+  snprintf(tmp, sizeof(tmp), "%" PRId64, track->trackindex);
   av_dict_set(&opts, "track_index", tmp, 0);
 
   result = avformat_open_input(&ctx, track->file, NULL, &opts);

@@ -80,7 +80,8 @@ void tracks_free(track_t **tracks)
   free(tracks);
 }
 
-static track_t *track_create(const char *path, AVFormatContext *avctx, 
+static track_t *track_create(const char *path, 
+                             AVFormatContext *avctx, 
                              int track_index)
 {
   track_t *track;
@@ -106,7 +107,7 @@ static track_t *track_create(const char *path, AVFormatContext *avctx,
     track->title = strcopy(tmp);
   }
 
-  track->track_index = track_index;
+  track->trackindex = track_index;
 
   tmp = get_metadata(avctx, "track");
   if (tmp) {

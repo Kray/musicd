@@ -39,7 +39,7 @@ typedef struct track {
   double start;
   double duration;
 
-  int64_t track_index;
+  int64_t trackindex;
   
 } track_t;
 
