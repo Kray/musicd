@@ -71,6 +71,90 @@ int is_valid_audio_file(AVFormatContext *avctx)
   return 1;
 }
 
+void tracks_free(track_t **tracks)
+{
+  int i;
+  for (i = 0; tracks[i] != NULL; ++i) {
+    track_free(tracks[i]);
+  }
+  free(tracks);
+}
+
+track_t **tracks_from_path(const char *path)
+{
+  AVFormatContext *avctx = NULL;
+  track_t *track;
+  track_t **tracks; /* NULL terminated */
+  int track_count;
+  int i;
+  char *tmp;
+
+  if (avformat_open_input(&avctx, path, NULL, NULL)) {
+    return NULL;
+  }
+  if (!is_valid_audio_file(avctx)) {
+    return NULL;
+  }
+
+  tmp = copy_metadata(avctx, "tracks");
+  if (tmp) {
+    sscanf(tmp, "%d", &track_count);
+  } else {
+    track_count = 1;
+  }
+
+  tracks = calloc(track_count + 1, sizeof(track_t *));
+
+  for (i = 0; i < track_count; ++i) {
+    /* For each metadata first try container-level metadata. If no value is
+     * found, try stream-specific metadata.
+     */
+
+    track = track_new();
+
+    track->file = strcopy(path);
+
+    tmp = get_metadata(avctx, "track");
+    if (tmp) {
+      sscanf(tmp, "%d", &track->track);
+    }
+
+    track->title = copy_metadata(avctx, "title");
+
+    if (!track->title) {
+      /* No title in metadata, use plain filename (no basename, it's crap). */
+      for (tmp = (char *)path + strlen(path);
+          tmp > path && *(tmp - 1) != '/';
+          --tmp) { }
+      track->title = strcopy(tmp);
+    }
+
+    if (track_count > 1) {
+      track->track = i;
+    }
+    track->artist = copy_metadata(avctx, "artist");
+    track->album = copy_metadata(avctx, "album");
+    track->albumartist = copy_metadata(avctx, "albumartist");
+
+    if (avctx->duration > 0) {
+      track->duration = avctx->duration / (double)AV_TIME_BASE;
+    } else {
+      track->duration =
+        avctx->streams[0]->duration * av_q2d(avctx->streams[0]->time_base);
+    }
+
+    if (track->duration <= 0) {
+      track_free(track);
+      track = NULL;
+    }
+    tracks[i] = track;
+  }
+
+  avformat_close_input(&avctx);
+  printf("tracks_from_path: %p\n", tracks);
+  return tracks;
+}
+
 track_t *track_from_path(const char *path)
 {
   AVFormatContext *avctx = NULL;
@@ -100,6 +184,9 @@ track_t *track_from_path(const char *path)
   }
   
   track->title = copy_metadata(avctx, "title");
+  tmp = copy_metadata(avctx, "tracks");
+  if (tmp)
+    printf("%s\n", tmp);
 
   if (!track->title) {
     /* No title in metadata, use plain filename (no basename, it's crap). */

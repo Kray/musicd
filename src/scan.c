@@ -114,7 +114,8 @@ static int64_t scan_file(const char *path, int64_t directory)
 {
   const char *extension;
   int64_t file = 0;
-  track_t *track;
+  track_t **tracks;
+  int i;
 
   for (extension = path + strlen(path);
     *(extension) != '.' && extension != path; --extension) { }
@@ -132,15 +133,19 @@ static int64_t scan_file(const char *path, int64_t directory)
       library_image_add(file);
     }
   } else {
-    /* Try track */
-    track = track_from_path(path);
-    if (track) {
+    tracks = tracks_from_path(path);
+    printf("%p\n", tracks);
+    /* Try tracks */
+    if (!tracks) {
+      return file;
+    }
+    for (i = 0; tracks[i]; ++i) {
       musicd_log(LOG_DEBUG, "scan", "track: %s", path);
-      library_track_add(track, directory);
+      library_track_add(tracks[i], directory);
       scan_track_added();
-      track_free(track);
       file = library_file(path, 0);
     }
+    tracks_free(tracks);
   } 
   return file;
 }

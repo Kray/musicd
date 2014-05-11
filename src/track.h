@@ -45,7 +45,9 @@ typedef struct track {
 track_t *track_new();
 
 track_t *track_from_path(const char *path);
+track_t **tracks_from_path(const char *path);
 
+void tracks_free(track_t **track);
 void track_free(track_t *track);
 
 
