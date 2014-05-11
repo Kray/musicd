@@ -134,7 +134,6 @@ static int64_t scan_file(const char *path, int64_t directory)
     }
   } else {
     tracks = tracks_from_path(path);
-    printf("%p\n", tracks);
     /* Try tracks */
     if (!tracks) {
       return file;
