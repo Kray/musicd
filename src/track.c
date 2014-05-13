@@ -49,7 +49,7 @@ track_t *track_new()
   return result;
 }
 
-int is_valid_audio_file(AVFormatContext *avctx)
+static int is_valid_audio_file(AVFormatContext *avctx)
 {
   /**
    * @todo TODO Own probing for ensuring probing score high enough to be sure
