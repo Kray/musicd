@@ -158,7 +158,7 @@ char *library_root_path()
 int64_t library_track_add(track_t *track, int64_t directory)
 {
   static const char *sql =
-    "INSERT INTO tracks (fileid, file, cuefileid, cuefile, track, title, artistid, artist, albumid, album, start, duration) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    "INSERT INTO tracks (fileid, file, cuefileid, cuefile, track, title, artistid, artist, albumid, album, start, duration, trackindex) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
   sqlite3_stmt *query;
 
@@ -190,6 +190,7 @@ int64_t library_track_add(track_t *track, int64_t directory)
   sqlite3_bind_text(query, 10, track->album, -1, NULL);
   sqlite3_bind_double(query, 11, track->start);
   sqlite3_bind_double(query, 12, track->duration);
+  sqlite3_bind_double(query, 13, track->trackindex);
 
   if (!execute(query)) {
     return -1;
@@ -739,7 +740,7 @@ track_t *library_track_by_id(int64_t id)
   int result;
 
   static const char *sql =
-    "SELECT rowid AS id, fileid, file, cuefileid, cuefile, track, title, artistid, artist, albumid, album, start, duration FROM tracks WHERE rowid = ?";
+    "SELECT rowid AS id, fileid, file, cuefileid, cuefile, track, title, artistid, artist, albumid, album, start, duration, trackindex FROM tracks WHERE rowid = ?";
 
   if (sqlite3_prepare_v2(db_handle(), sql, -1, &stmt, NULL) != SQLITE_OK) {
     musicd_log(LOG_ERROR, "library", "can't prepare '%s': %s", sql,
@@ -771,6 +772,7 @@ track_t *library_track_by_id(int64_t id)
   track->album = strcopy((const char *)sqlite3_column_text(stmt, 10));
   track->start = sqlite3_column_double(stmt, 11);
   track->duration = sqlite3_column_double(stmt, 12);
+  track->trackindex = sqlite3_column_double(stmt, 13);
 
   /*musicd_log(LOG_DEBUG, "library", "%" PRId64 " %s %s %d %s %s %s %lf %lf",
              track->id, track->file, track->cuefile, track->track, track->title, track->artist,

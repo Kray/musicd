@@ -96,12 +96,17 @@ bool stream_open(stream_t *stream, track_t* track)
   int result;
   AVFormatContext *ctx = NULL;
   AVCodec *src_codec;
+  AVDictionary *opts = NULL;
+  char tmp[20];
   
   if (!track) {
     return false;
   }
 
-  result = avformat_open_input(&ctx, track->file, NULL, NULL);
+  snprintf(tmp, sizeof(tmp), "%" PRId64, track->trackindex);
+  av_dict_set(&opts, "track_index", tmp, 0);
+
+  result = avformat_open_input(&ctx, track->file, NULL, &opts);
   if (result < 0) {
     musicd_log(LOG_ERROR, "stream", "can't open file '%s': %s",
                track->file, strerror(AVUNERROR(result)));
@@ -270,6 +275,10 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
   /** @todo FIXME Hard-coded values. */
   if (bitrate < 64000 || bitrate > 320000) {
     bitrate = 196000;
+  }
+
+  if (decoder->channel_layout == 0) {
+    decoder->channel_layout = av_get_default_channel_layout(decoder->channels);
   }
 
   encoder = avcodec_alloc_context3(dst_codec);
