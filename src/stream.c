@@ -56,12 +56,12 @@ void stream_close(stream_t *stream)
 
   track_free(stream->track);
 
-  av_free_packet(&stream->src_packet);
-  av_free_packet(&stream->encode_packet);
+  av_packet_unref(&stream->src_packet);
+  av_packet_unref(&stream->encode_packet);
 
-  avcodec_free_frame(&stream->decode_frame);
-  avcodec_free_frame(&stream->resample_frame);
-  avcodec_free_frame(&stream->encode_frame);
+  av_frame_free(&stream->decode_frame);
+  av_frame_free(&stream->resample_frame);
+  av_frame_free(&stream->encode_frame);
 
   av_audio_fifo_free(stream->src_buf);
 
@@ -336,18 +336,18 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
 
   stream->src_buf = av_audio_fifo_alloc(encoder->sample_fmt, encoder->channels, encoder->frame_size);
 
-  stream->decode_frame = avcodec_alloc_frame();
+  stream->decode_frame = av_frame_alloc();
 
   if (stream->resampler) {
     /* The buffer will be allocated dynamically */
-    stream->resample_frame = avcodec_alloc_frame();
+    stream->resample_frame = av_frame_alloc();
   }
 
   int buf_size = av_samples_get_buffer_size(NULL, stream->encoder->channels,
                                                   stream->encoder->frame_size,
                                                   stream->encoder->sample_fmt, 0);
   stream->encode_buf = av_mallocz(buf_size);
-  stream->encode_frame = avcodec_alloc_frame();
+  stream->encode_frame = av_frame_alloc();
   stream->encode_frame->nb_samples = stream->encoder->frame_size;
   avcodec_fill_audio_frame(stream->encode_frame,
                            stream->encoder->channels,
@@ -449,7 +449,7 @@ static int read_next(stream_t *stream)
   int result;
   
   while (1) {
-    av_free_packet(&stream->src_packet);
+    av_packet_unref(&stream->src_packet);
 
     result = av_read_frame(stream->src_ctx, &stream->src_packet);
     if (result < 0) {
@@ -491,7 +491,7 @@ static int decode_next(stream_t *stream)
     return result;
   }
 
-  avcodec_get_frame_defaults(frame);
+  av_frame_unref(frame);
 
   result = avcodec_decode_audio4(stream->decoder, frame,
                                  &got_frame, &stream->src_packet);
@@ -572,7 +572,7 @@ static int encode_next(stream_t *stream)
                      (void **)frame->extended_data,
                      stream->encoder->frame_size);
 
-  av_free_packet(packet);
+  av_packet_unref(packet);
 
   result = avcodec_encode_audio2(stream->encoder, packet, frame, &got_packet);
 
