@@ -438,8 +438,14 @@ bool stream_remux(stream_t *stream,
 
 int stream_start(stream_t *stream)
 {
+  int result;
+  
   if (stream->dst_ctx) {
-    avformat_write_header(stream->dst_ctx, NULL);
+    result = avformat_write_header(stream->dst_ctx, NULL);
+    if (result < 0) {
+      musicd_log(LOG_ERROR, "stream", "avformat_write_header failed: %s",
+                 strerror(AVUNERROR(result)));
+    }
   }
   return 0;
 }
@@ -653,7 +659,7 @@ int stream_next(stream_t *stream)
 
 bool stream_seek(stream_t *stream, double position)
 {
-  bool result;
+  int result;
   int64_t seek_pos;
   
   seek_pos = (position + stream->track->start) /

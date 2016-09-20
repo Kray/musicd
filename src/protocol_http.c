@@ -1040,7 +1040,7 @@ static int method_open(http_t *http)
   }
 
   if (seek > 0) {
-    if (stream_seek(stream, seek) < 0) {
+    if (!stream_seek(stream, seek)) {
       http_reply(http, "500 Internal Server Error");
       stream_close(stream);
       return 0;

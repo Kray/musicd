@@ -343,7 +343,7 @@ static void update_albumimg(int64_t album)
 
 static bool assign_images_cb(library_directory_t *directory, void *album)
 {
-  if (!library_directory_tracks_count(directory->id) > 0) {
+  if (library_directory_tracks_count(directory->id) > 0) {
     library_image_album_set_by_directory(directory->id, *((int64_t *)album));
   }
   return true;
