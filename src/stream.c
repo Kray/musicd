@@ -59,9 +59,9 @@ void stream_close(stream_t *stream)
   av_free_packet(&stream->src_packet);
   av_free_packet(&stream->encode_packet);
 
-  avcodec_free_frame(&stream->decode_frame);
-  avcodec_free_frame(&stream->resample_frame);
-  avcodec_free_frame(&stream->encode_frame);
+  av_frame_free(&stream->decode_frame);
+  av_frame_free(&stream->resample_frame);
+  av_frame_free(&stream->encode_frame);
 
   av_audio_fifo_free(stream->src_buf);
 
@@ -336,18 +336,18 @@ bool stream_transcode(stream_t *stream, codec_type_t codec_type, int bitrate)
 
   stream->src_buf = av_audio_fifo_alloc(encoder->sample_fmt, encoder->channels, encoder->frame_size);
 
-  stream->decode_frame = avcodec_alloc_frame();
+  stream->decode_frame = av_frame_alloc();
 
   if (stream->resampler) {
     /* The buffer will be allocated dynamically */
-    stream->resample_frame = avcodec_alloc_frame();
+    stream->resample_frame = av_frame_alloc();
   }
 
   int buf_size = av_samples_get_buffer_size(NULL, stream->encoder->channels,
                                                   stream->encoder->frame_size,
                                                   stream->encoder->sample_fmt, 0);
   stream->encode_buf = av_mallocz(buf_size);
-  stream->encode_frame = avcodec_alloc_frame();
+  stream->encode_frame = av_frame_alloc();
   stream->encode_frame->nb_samples = stream->encoder->frame_size;
   avcodec_fill_audio_frame(stream->encode_frame,
                            stream->encoder->channels,
@@ -491,7 +491,7 @@ static int decode_next(stream_t *stream)
     return result;
   }
 
-  avcodec_get_frame_defaults(frame);
+  av_frame_unref(frame);
 
   result = avcodec_decode_audio4(stream->decoder, frame,
                                  &got_frame, &stream->src_packet);
